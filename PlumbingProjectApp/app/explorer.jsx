@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Search, Star, ThumbsUp, Calendar, TrendingUp, TrendingDown, Filter, ArrowLeft } from "lucide-react";
 import { View, Text, TextInput, Pressable, ScrollView, Alert } from "react-native";
 import { getAuth } from "firebase/auth";
+import { useLocalSearchParams } from "expo-router";
 
 export default function AllReviews() {
   const [search, setSearch] = useState("");
@@ -13,6 +14,7 @@ export default function AllReviews() {
   const [error, setError] = useState(null);
   const [userRating, setUserRating] = useState(0);
   const [userStarHover, setUserStarHover] = useState(0);
+  const { reviewId } = useLocalSearchParams();
 
   // Fetch approved reviews from backend
   useEffect(() => {
@@ -95,6 +97,19 @@ export default function AllReviews() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (reviewId && reviews.length > 0) {
+      const found = reviews.find(
+        (r) => String(r.id) === String(reviewId)
+      );
+
+      if (found) {
+        setSelectedReview(found);
+        fetchCommunityRating(found.id);
+      }
+    }
+  }, [reviewId, reviews]);
 
   // Filter + search logic
   let filtered = reviews.filter(
