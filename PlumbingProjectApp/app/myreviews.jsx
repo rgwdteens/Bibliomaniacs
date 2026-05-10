@@ -39,7 +39,9 @@ export default function MyReviews() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [dailyReviewsRemaining, setDailyReviewsRemaining] = useState(2);
   const [dailyReviewsSubmitted, setDailyReviewsSubmitted] = useState(0);
-
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [selectedComment, setSelectedComment] = useState("");
+  
   const debounceTimer = useRef(null);
 
   const statusColor = {
@@ -576,7 +578,23 @@ export default function MyReviews() {
                     <td className="reviewDisplayCell">{clampReview(r.review)}</td>
                     <td className="align-top px-4 py-4">⭐ {r.rating}</td>
                     <td className="align-top px-4 py-4">
-                      <span className="font-bold" style={{ color: statusColor[r.status] }}>{r.status}</span>
+                      <span className="font-bold" style={{ color: statusColor[r.status] }}>
+                        {r.status}
+                      </span>
+
+                      {r.status === "Rejected" && r.comment && (
+                        <div>
+                          <button
+                            onClick={() => {
+                              setSelectedComment(r.comment);
+                              setShowCommentModal(true);
+                            }}
+                            className="text-blue-600 hover:underline hover:text-blue-700 cursor-pointer text-sm transition-colors duration-150"
+                          >
+                            View Comment
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="align-top px-4 py-4 text-gray-600">{new Date(r.createdAt).toLocaleDateString()}</td>
                     <td className="align-top px-4 py-4">
@@ -663,6 +681,29 @@ export default function MyReviews() {
         isEditMode={isEditMode}
         reviewWordCount={review.trim().split(/\s+/).filter(Boolean).length}
       />
+
+      {showCommentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">
+              Admin Comment
+            </h2>
+
+            <div className="bg-gray-50 p-4 rounded text-gray-800 whitespace-pre-line">
+              {selectedComment}
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowCommentModal(false)}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showViewModal && selectedReview && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

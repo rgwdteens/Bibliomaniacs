@@ -846,7 +846,7 @@ export default function AdminReviews() {
                   />
 
                   <p className="text-xs text-gray-500 mt-2">
-                    This message will be shown to the user and included in the email.
+                    This message will be shown to the user in their notifications.
                   </p>
                 </div>
               )}

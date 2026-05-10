@@ -1382,6 +1382,7 @@ def update_review(review_id):
                 else:
                     final_comment = template_text
 
+        updates["comment_to_user"] = final_comment
         email_draft = generate_email_draft(
             recipient_email=review["email"],
             recipient_name=f"{review['first_name']} {review['last_name']}",

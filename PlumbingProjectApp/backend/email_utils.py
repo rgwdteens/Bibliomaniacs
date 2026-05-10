@@ -2,12 +2,14 @@ from typing import Literal, Dict, List, Optional
 
 SENDER_NAME = "Bibliomaniacs Review Team"
 
+bibliomaniacs_page_link = "https://ridgewoodlibrary.org/teen-services/bibliomaniacs/"
+
 REJECTION_FULL_TEMPLATES = {
     "below_ya": """Dear {first_name},
 
 This message is to let you know that we have received your book review for {book_title}. Unfortunately, we cannot accept your review and give you volunteer time because the title is categorized as Children's or Middle Grade. 
 
-Going forward, please make sure that the reviews you submit are for books that are categorized as YA or above. This rule is stated in the Bibliomaniacs page of the Ridgewood Public Library website. You can check our catalog or Goodreads to confirm whether the book you are submitting a review for is Young Adult.
+Going forward, please make sure that the reviews you submit are for books that are categorized as YA or above. This rule is stated in the Bibliomaniacs page of the Ridgewood Public Library website (https://ridgewoodlibrary.org/teen-services/bibliomaniacs/). You can check our catalog (https://rgwd.search.bccls.org/) or Goodreads (https://www.goodreads.com/) to confirm whether the book you are submitting a review for is Young Adult.
 
 Thank you so much for submitting. Keep reading!
 """,
@@ -16,29 +18,28 @@ Thank you so much for submitting. Keep reading!
 
 This message is to let you know that we have received your book review for {book_title}. Unfortunately, we cannot accept your review and give you volunteer time because a review has already been previously submitted for this book.
 
-Going forward, please consult this list of submitted reviews on our Bibliomaniacs page to check before submitting a book review for volunteer time.
+Going forward, please consult this list of submitted reviews on our Bibliomaniacs page (https://ridgewoodlibrary.org/teen-services/bibliomaniacs/) to check before submitting a book review for volunteer time.
 
 Thank you and keep reading!
 """,
 
     "plagiarism": """Dear {first_name},
 
-This message is to let you know that we have received your book review for {book_title}. We noticed that sections of the review appear to be copied from another source online. As stated in the guidelines, all reviews must be written by the person submitting them, and we cannot accept duplicated material.
+This message is to let you know that we have received your book review for {book_title}. We noticed that sections of the review appear to be copied from another source online. As stated in the guidelines, all reviews must be written by the person submitting them, and we cannot accept duplicated material. Please consult our Bibliomaniacs Volunteer Program Guidelines (https://docs.wixstatic.com/ugd/eb7023_5a7ef100cb724fff8fa185e5ab7af14b.pdf) for submission rules.
 
-If you would like to edit and re-submit your review, we would be happy to accept it. We appreciate your effort in submitting and understand similarities may be unintentional.
+If you would like to edit and re-submit your review, we would be happy to accept it. We appreciate your effort in submitting to Bibliomaniacs, and we understand that similarities to existing reviews may be unintentional or unavoidable. We've included some suggestions to help you with future reviews:
 
-Suggestions:
-- Check Goodreads examples
-- Use plagiarism checkers before submitting
+- Check the Explore page for examples of reviews that adhere to the guidelines.
+- Run your review through a free online tool such as PlagiarismDetector.net or SmallSEOTools.com's Plagiarism Checker to ensure all material is original.
 
 Thank you and keep reading!
 """,
 
     "location": """Dear {first_name},
 
-This message is to let you know that we have received your book review for {book_title}. Unfortunately, we cannot accept your review because we only accept submissions from Ridgewood, NJ students or those attending school in the area.
+This message is to let you know that we have received your book review for {book_title}. Unfortunately, we cannot accept your review and give you volunteer hours because we can only accept reviews from student volunteers who are Ridgewood, NJ residents or attend school in the area. This rule is stated in the Bibliomaniacs page of the Ridgewood Public Library website (https://ridgewoodlibrary.org/teen-services/bibliomaniacs/), which contains the form for submitting reviews.
 
-We are grateful for your enthusiasm and encourage you to keep reading.
+We are flattered and grateful to have received your reviews, appreciate your enthusiasm for reading, and would like to encourage you to keep reading.
 """,
 
     "limit": """Dear {first_name},
@@ -197,8 +198,6 @@ This is an automated message. Please do not reply.
                 book_title=book_title
             )
 
-            if comment:
-                base_text += f"\n\nAdditional notes:\n{comment}"
 
             return {
                 "to": recipient_email,
