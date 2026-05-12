@@ -14,7 +14,7 @@ from fireo.fields import TextField, IDField, NumberField, ListField
 from review_model import Review, create_review, process_review, calculate_user_hours
 import traceback
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 from email_utils import generate_email_draft, generate_bulk_email_drafts
 from better_profanity import profanity
@@ -1593,6 +1593,7 @@ def get_user_reviews():
                 "recommended_audience_grade": r.recommended_audience_grade or [],
                 "anonymous": r.anonymous,
                 "status": "Approved" if r.approved else ("Rejected" if r.date_processed else "Pending"),
+                "date_processed": r.date_processed.isoformat() if r.date_processed else None,
                 "date_received": r.date_received.isoformat() if r.date_received else None,
                 "comment_to_user": r.comment_to_user,
             })
@@ -1609,6 +1610,84 @@ def get_user_reviews():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@app.route("/update_certificate", methods=["POST"])
+def update_certificate():
+    data = request.get_json(silent=True) or {}
+    id_token = data.get("idToken")
+
+    if not id_token:
+        return jsonify({"error": "Missing ID token"}), 401
+
+    decoded = verify_firebase_token(id_token)
+    if not decoded:
+        return jsonify({"error": "Invalid ID token"}), 401
+
+    uid = decoded["uid"]
+    email = decoded.get("email")
+
+    try:
+        user_ref = db.collection("users").document(uid)
+        user_snap = user_ref.get()
+
+        if not user_snap.exists:
+            return jsonify({"error": "User not found"}), 404
+
+        user_data = user_snap.to_dict() or {}
+        past_certificates = user_data.get("past_certificates", [])
+
+        # Determine cutoff from the most recent certificate
+        last_cert_date = None
+        if past_certificates:
+            sorted_certs = sorted(past_certificates, key=lambda c: c.get("timestamp", 0))
+            last_cert_raw = sorted_certs[-1].get("date")
+
+            if last_cert_raw is not None:
+                last_cert_date= last_cert_raw
+
+        # Fetch all approved reviews for this user
+        all_reviews_ref = Review.collection.filter('email', '==', email).fetch()
+
+        eligible_review_ids = []
+        for r in all_reviews_ref:
+
+            if not r.approved:
+                continue
+
+            dp = r.date_processed
+            if dp is None:
+                continue
+
+
+            if last_cert_date is not None and dp <= last_cert_date:
+                continue
+
+            eligible_review_ids.append(r.id)
+
+        if not eligible_review_ids:
+            return
+
+        now_ts = datetime.now().timestamp()
+        now_str = datetime.now()
+
+        new_certificate = {
+            "date": now_str,        # human-readable, kept for display
+            "timestamp": now_ts,    # numeric, used for comparisons
+            "reviews": eligible_review_ids,
+        }
+
+        past_certificates.append(new_certificate)
+        user_ref.update({"past_certificates": past_certificates})
+
+        return jsonify({
+            "message": "Certificate updated successfully",
+            "certificate": new_certificate,
+        }), 200
+
+    except Exception as e:
+        print("update_certificate error:")
+        return jsonify({"error": str(e)}), 500
+    
 
 @app.route("/get_uid_by_email", methods=["POST"])
 def get_uid_by_email():
