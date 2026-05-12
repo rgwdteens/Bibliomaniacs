@@ -2,6 +2,54 @@ from typing import Literal, Dict, List, Optional
 
 SENDER_NAME = "Bibliomaniacs Review Team"
 
+REJECTION_FULL_TEMPLATES = {
+    "below_ya": """Dear {first_name},
+
+This message is to let you know that we have received your book review for {book_title}. Unfortunately, we cannot accept your review and give you volunteer time because the title is categorized as Children's or Middle Grade. 
+
+Going forward, please make sure that the reviews you submit are for books that are categorized as YA or above. This rule is stated in the Bibliomaniacs page of the Ridgewood Public Library website. You can check our catalog or Goodreads to confirm whether the book you are submitting a review for is Young Adult.
+
+Thank you so much for submitting. Keep reading!
+""",
+
+    "duplicate": """Dear {first_name},
+
+This message is to let you know that we have received your book review for {book_title}. Unfortunately, we cannot accept your review and give you volunteer time because a review has already been previously submitted for this book.
+
+Going forward, please consult this list of submitted reviews on our Bibliomaniacs page to check before submitting a book review for volunteer time.
+
+Thank you and keep reading!
+""",
+
+    "plagiarism": """Dear {first_name},
+
+This message is to let you know that we have received your book review for {book_title}. We noticed that sections of the review appear to be copied from another source online. As stated in the guidelines, all reviews must be written by the person submitting them, and we cannot accept duplicated material.
+
+If you would like to edit and re-submit your review, we would be happy to accept it. We appreciate your effort in submitting and understand similarities may be unintentional.
+
+Suggestions:
+- Check Goodreads examples
+- Use plagiarism checkers before submitting
+
+Thank you and keep reading!
+""",
+
+    "location": """Dear {first_name},
+
+This message is to let you know that we have received your book review for {book_title}. Unfortunately, we cannot accept your review because we only accept submissions from Ridgewood, NJ students or those attending school in the area.
+
+We are grateful for your enthusiasm and encourage you to keep reading.
+""",
+
+    "limit": """Dear {first_name},
+
+This message is to let you know that we have received your book review for {book_title}. We only allow TWO reviews per day, and this limit has been exceeded.
+
+Please submit again starting tomorrow.
+
+Thank you so much for submitting. Keep reading!
+"""
+}
 
 # =============================
 # Patron Review Guidelines
@@ -49,7 +97,8 @@ def generate_email_draft(
     book_title: str,
     author: str,
     status: Literal["approved", "rejected"],
-    comment: Optional[str] = None
+    comment: Optional[str] = None,
+    rejection_reason_key: Optional[str] = None
 ) -> Dict[str, str]:
     """
     Generate an email draft notifying a reviewer of their review status.
@@ -140,7 +189,26 @@ This is an automated message. Please do not reply.
     # =============================
 
     else:
+        first_name = recipient_name.split(" ")[0]
 
+        if rejection_reason_key in REJECTION_FULL_TEMPLATES:
+            base_text = REJECTION_FULL_TEMPLATES[rejection_reason_key].format(
+                first_name=first_name,
+                book_title=book_title
+            )
+
+            if comment:
+                base_text += f"\n\nAdditional notes:\n{comment}"
+
+            return {
+                "to": recipient_email,
+                "subject": f"Book Review Status Update: {book_title}",
+                "html_body": base_text.replace("\n", "<br>"),
+                "text_body": base_text,
+                "status": status,
+                "book_title": book_title,
+                "reviewer_name": recipient_name,
+            }
         html_body = f"""
         <html>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">

@@ -1,21 +1,86 @@
 import React, { useState, useEffect } from "react";
-import { Search, Star, Calendar, TrendingUp, TrendingDown, Filter, ArrowLeft } from "lucide-react";
+import { Search, Star, ThumbsUp, Calendar, TrendingUp, TrendingDown, Filter, ArrowLeft } from "lucide-react";
 import { View, Text, TextInput, Pressable, ScrollView, Alert } from "react-native";
+import { getAuth } from "firebase/auth";
+import { useLocalSearchParams } from "expo-router";
 
 export default function AllReviews() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [selectedReview, setSelectedReview] = useState(null);
+  const[communityRating, setCommunityRating] = useState(0);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [userRating, setUserRating] = useState(0);
+  const [userStarHover, setUserStarHover] = useState(0);
+  const { reviewId } = useLocalSearchParams();
 
   // Fetch approved reviews from backend
   useEffect(() => {
     fetch('http://localhost:5001/clear_cache', { method: 'POST' })
     fetchReviews();
   }, []);
+
+  const fetchCommunityRating = async (bookId) => {
+    try {
+      const res = await fetch(`http://localhost:5001/get_community_rating/${bookId}`);
+      const data = await res.json();
+      if (res.ok & data.rating_count != 0) {
+        setCommunityRating(data.average_rating);
+      }
+
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return; // silently skip if not logged in
+
+      const idToken = await user.getIdToken(true);
+      const res2 = await fetch(`http://localhost:5001/get_users_community_rating/${bookId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, book_id: bookId }),
+      });
+      const data2 = await res2.json();
+      if (res2.ok && data2.rating !== null) {
+        setUserRating(data2.rating); // convert back to 1-5 scale for star display
+      }
+      console.log(userRating);
+    } catch (err) {
+      console.error("Failed to fetch community rating:", err);
+    }
+  };
+
+  const handleSubmitCommunityRating = async (bookId, star) => {
+    setUserRating(star);
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        alert("You must be logged in to rate a book.");
+        return;
+      }
   
+      const idToken = await user.getIdToken(true);
+  
+      const res = await fetch("http://localhost:5001/submit_community_rating", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, book_id: bookId, rating: star }),
+      });
+  
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("Failed to submit rating:", data.error);
+        return;
+      }
+  
+      // Update communityRating local state
+      setCommunityRating(data.new_average);
+  
+    } catch (err) {
+      console.error("Failed to submit community rating:", err);
+    }
+  };
 
   const fetchReviews = async () => {
     setLoading(true);
@@ -32,6 +97,19 @@ export default function AllReviews() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (reviewId && reviews.length > 0) {
+      const found = reviews.find(
+        (r) => String(r.id) === String(reviewId)
+      );
+
+      if (found) {
+        setSelectedReview(found);
+        fetchCommunityRating(found.id);
+      }
+    }
+  }, [reviewId, reviews]);
 
   // Filter + search logic
   let filtered = reviews.filter(
@@ -104,7 +182,8 @@ export default function AllReviews() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           {/* Back Button */}
           <button
-            onClick={() => setSelectedReview(null)}
+            onClick={() => {setSelectedReview(null); setUserRating(null); setCommunityRating(null)}
+            }
             className="flex items-center gap-2 mb-8 text-emerald-700 hover:text-emerald-900 
                      font-semibold transition-colors"
           >
@@ -160,6 +239,38 @@ export default function AllReviews() {
                     year: 'numeric' 
                   })}
                 </span>
+              </div>
+
+              {/* After the existing rating/date div in the header */}
+              <div className="mt-3 pt-3 border-t border-white/20">
+                <div className="text-white/80 text-xs mb-2 font-semibold">
+                  {communityRating > 0 
+                    ? <div className="flex items-center gap-1">
+                        <ThumbsUp className="w-4 h-4 fill-white text-white"/>
+                        <span className="ml-1 font-bold">{Number(communityRating*20).toFixed(0)}% Liked</span>
+                      </div>
+                    : "No community ratings yet"}
+                </div>
+                <p className="text-white text-xs mb-1">Rate this book:</p>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => handleSubmitCommunityRating(selectedReview.id, star)}
+                      className="transition-transform hover:scale-125"
+                    >
+                      <Star
+                        className={`w-6 h-6 ${
+                          star <= userStarHover || star <= userRating
+                            ? "fill-amber-300 text-amber-300"
+                            : "fill-white/30 text-white/30"
+                        }`}
+                        onMouseEnter={() => setUserStarHover(star)}
+                        onMouseLeave={() => setUserStarHover(0)}
+                      />
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             
@@ -259,7 +370,8 @@ export default function AllReviews() {
             return (
               <button
                 key={r.id}
-                onClick={() => setSelectedReview(r)}
+                onClick={() => {setSelectedReview(r); fetchCommunityRating(r.id)}
+                }
                 className="bg-white rounded-xl shadow-md hover:shadow-xl 
                          transition-all duration-300 transform hover:-translate-y-1
                          border border-emerald-100 p-4 text-left cursor-pointer group"

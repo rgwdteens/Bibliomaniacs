@@ -8,6 +8,7 @@ import { Dimensions } from "react-native";
 import { getAuth } from "firebase/auth";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { auth, app } from "../firebaseConfig";
+import { router } from "expo-router";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = Math.min(width * 0.7, 340);
@@ -17,6 +18,8 @@ export default function LandingPage() {
   const [loadingRecs, setLoadingRecs] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [loadingBook, setLoadingBook] = useState(true);
+  const [selectedReview, setSelectedReview] = useState(null);
+  const [reviewMessage, setReviewMessage] = useState("");
   const API_BASE_URL = "http://localhost:5001";
 
   useEffect(() => {
@@ -81,6 +84,37 @@ export default function LandingPage() {
     lastUpdated: "",
   });
 
+  const handleRecommendationPress = async (book) => {
+    try {
+      const res = await fetch(
+        "http://localhost:5001/get_reviews?status=approved"
+      );
+
+      const data = await res.json();
+
+      const matchingReview = data.find(
+        (r) =>
+          r.book_title?.toLowerCase().trim() ===
+          book.title?.toLowerCase().trim()
+      );
+
+      if (matchingReview) {
+        router.push({
+          pathname: "/explorer",
+          params: {
+            reviewId: matchingReview.id,
+          },
+        });
+      } else {
+        alert(
+          "No Bibliomaniacs user has written a review for this book yet."
+        );
+      }
+    } catch (err) {
+      console.error("Failed loading review:", err);
+    }
+  };
+  
   useEffect(() => {
     const auth = getAuth();
     auth.currentUser;
@@ -158,6 +192,60 @@ export default function LandingPage() {
   const prev = () => {
     setIndex((prev) => (prev - 1 + recommendations.length) % recommendations.length);
   };
+
+  if (selectedReview) {
+    return (
+      <ScrollView className="bg-emerald-50 min-h-screen">
+        <View className="max-w-4xl mx-auto px-6 py-10">
+
+          <Pressable
+            onPress={() => {
+              setSelectedReview(null);
+              setReviewMessage("");
+            }}
+            className="mb-6"
+          >
+            <Text className="text-emerald-700 font-semibold text-lg">
+              ← Back to all recommendations
+            </Text>
+          </Pressable>
+
+          <View className="bg-white rounded-2xl p-8 shadow-md">
+
+            <Text className="text-3xl font-bold text-gray-900 mb-2">
+              {selectedReview.book_title || selectedReview.title}
+            </Text>
+
+            <Text className="text-lg text-gray-600 mb-6">
+              by {selectedReview.author}
+            </Text>
+
+            {selectedReview.noReview ? (
+              <Text className="text-gray-500 text-base">
+                {reviewMessage}
+              </Text>
+            ) : (
+              <>
+                <Text className="text-emerald-700 font-semibold mb-3">
+                  Community Review
+                </Text>
+
+                <Text className="text-gray-700 leading-7 text-base">
+                  {selectedReview.review}
+                </Text>
+
+                <View className="mt-6 pt-4 border-t border-gray-200">
+                  <Text className="text-sm text-gray-500">
+                    Rating: ⭐ {selectedReview.rating}
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
     <RequireAccess
@@ -264,7 +352,8 @@ export default function LandingPage() {
               windowSize={3}
               renderItem={({ item }) => (
                 <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                  <View
+                  <Pressable
+                    onPress={() => handleRecommendationPress(item)}
                     style={{
                       width: CARD_WIDTH,
                       backgroundColor: '#f6faf6',
@@ -287,7 +376,7 @@ export default function LandingPage() {
                           ? item.avg_rating.toFixed(1)
                           : "N/A"}
                     </Text>
-                  </View>
+                  </Pressable>
                 </View>
               )}
             />

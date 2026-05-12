@@ -24,6 +24,11 @@ export default function AdminReviews() {
   const [updating, setUpdating] = useState(null);
   const [emailDraftModal, setEmailDraftModal] = useState({ show: false, draft: null, reviewId: null });
   const [loadingDraft, setLoadingDraft] = useState(null);
+  const [hoveredUser, setHoveredUser] = useState(null);
+  const [hoverHours, setHoverHours] = useState({});
+  const [hoveredRow, setHoveredRow] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [customMessage, setCustomMessage] = useState("");
 
   useEffect(() => {
     fetch('http://localhost:5001/clear_cache', { method: 'POST' });
@@ -70,6 +75,29 @@ export default function AdminReviews() {
     }
   };
 
+  const fetchUserHours = async (email) => {
+    if (hoverHours[email]) return;
+
+    try {
+      const res = await fetch("http://localhost:5001/get_user_hours_by_email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      setHoverHours(prev => ({
+        ...prev,
+        [email]: data.total_hours || 0
+      }));
+    } catch (err) {
+      console.error("Failed to fetch user hours");
+    }
+  };
+
   const clearCacheAndRefresh = async () => {
     try {
       await fetch('http://localhost:5001/clear_cache', { method: 'POST' });
@@ -87,11 +115,42 @@ export default function AdminReviews() {
     Rejected: "#c0392b",
   };
 
+
+  const REJECTION_TEMPLATES = [
+    {
+      key: "below_ya",
+      label: "Book below YA level",
+      template: `This book is categorized as Children's or Middle Grade. Please submit YA or above.`
+    },
+    {
+      key: "duplicate",
+      label: "Already reviewed",
+      template: `A review has already been submitted for this book.`
+    },
+    {
+      key: "plagiarism",
+      label: "Plagiarism",
+      template: `Your review appears to contain copied content. Reviews must be original.`
+    },
+    {
+      key: "location",
+      label: "Outside Ridgewood",
+      template: `We only accept submissions from Ridgewood students.`
+    },
+    {
+      key: "limit",
+      label: "More than 2 per day",
+      template: `You exceeded the daily limit of 2 reviews.`
+    }
+  ];
+
   const filtered = reviews.filter((r) => {
+    const searchLower = search.toLowerCase();
     const matchSearch =
       r.book_title?.toLowerCase().includes(search.toLowerCase()) ||
       r.author?.toLowerCase().includes(search.toLowerCase()) ||
-      `${r.first_name} ${r.last_name}`.toLowerCase().includes(search.toLowerCase());
+      `${r.first_name} ${r.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
+      r.email?.toLowerCase().includes(searchLower);
     const matchFrom = !fromDate || new Date(r.date_received) >= new Date(fromDate);
     const matchTo = !toDate || new Date(r.date_received) <= new Date(toDate);
     return matchSearch && matchFrom && matchTo;
@@ -121,6 +180,11 @@ export default function AdminReviews() {
 
       if (action !== "Pending") {
         updateData.date_processed = new Date().toISOString();
+      }
+
+      if (confirmModal.action === "Rejected") {
+        updateData.comment_to_user = customMessage;
+        updateData.rejection_reason_key = selectedTemplate?.key || "custom";
       }
 
       const response = await fetch(`http://localhost:5001/update_review/${reviewId}`, {
@@ -426,7 +490,7 @@ export default function AdminReviews() {
             <div className="flex flex-wrap gap-3 mb-6 justify-center bg-white p-6 rounded-lg shadow-sm">
               <input
                 type="text"
-                placeholder="Search books, authors, reviewers..."
+                placeholder="Search books, authors, reviewers, emails..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && fetchReviews()}
@@ -507,8 +571,27 @@ export default function AdminReviews() {
                           <td className="px-3 py-3 text-sm text-gray-600">
                             {new Date(r.date_received).toLocaleDateString()}
                           </td>
-                          <td className="px-3 py-3 text-sm font-semibold text-gray-800">
-                            {r.first_name} {r.last_name}
+                          <td className="px-3 py-3 text-sm font-semibold text-gray-800 relative">
+                            <span
+                              onMouseEnter={() => {
+                                setHoveredRow(r.id);
+                                fetchUserHours(r.email);
+                              }}
+                              onMouseLeave={() => setHoveredRow(null)}
+                              className="cursor-pointer hover:underline"
+                            >
+                              {r.first_name} {r.last_name}
+                            </span>
+
+                            {hoveredRow === r.id && (
+                              <div className="absolute z-50 top-8 left-0 bg-black text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap animate-fade-in">
+                                {r.first_name} {r.last_name} has{" "}
+                                <span className="font-bold text-green-400">
+                                  {hoverHours[r.email] ?? "..."}
+                                </span>{" "}
+                                total volunteer hours
+                              </div>
+                            )}
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-700">{r.grade}</td>
                           <td className="px-3 py-3 text-sm font-medium text-gray-800">{r.book_title}</td>
@@ -713,30 +796,86 @@ export default function AdminReviews() {
         {/* Confirmation Modal */}
         {confirmModal.show && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl">
-              <h2 className="text-2xl font-bold mb-3 text-gray-800">Confirm Action</h2>
+            <div className="bg-white rounded-xl p-6 w-full max-w-lg mx-4 shadow-2xl">
+
+              <h2 className="text-2xl font-bold mb-3 text-gray-800">
+                Confirm {confirmModal.action}
+              </h2>
+
               <p className="text-gray-600 mb-2">
                 Book: <span className="font-semibold">{confirmModal.review?.book_title}</span>
               </p>
-              <p className="text-gray-600 mb-2">
+
+              <p className="text-gray-600 mb-4">
                 Change status to{" "}
                 <span className="font-bold" style={{ color: statusColor[confirmModal.action] }}>
                   {confirmModal.action}
                 </span>
                 ?
               </p>
-              <p className="text-sm text-purple-600 mb-6 font-medium">
+
+              {confirmModal.action === "Rejected" && (
+                <div className="mt-4 border-t pt-4">
+
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Rejection Reason
+                  </label>
+
+                  <select
+                    onChange={(e) => {
+                      const template = REJECTION_TEMPLATES.find(t => t.key === e.target.value);
+                      setSelectedTemplate(template);
+                      setCustomMessage(template?.template || "");
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  >
+                    <option value="">Select a reason...</option>
+                    {REJECTION_TEMPLATES.map(t => (
+                      <option key={t.key} value={t.key}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <textarea
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    rows={4}
+                    placeholder="Customize feedback for the user..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+
+                  <p className="text-xs text-gray-500 mt-2">
+                    This message will be shown to the user and included in the email.
+                  </p>
+                </div>
+              )}
+
+              <p className="text-sm text-purple-600 mt-4 mb-6 font-medium">
                 📧 You'll be able to review the email draft before sending.
               </p>
+
               <div className="flex gap-3 justify-end">
                 <button
-                  onClick={() => setConfirmModal({ show: false, reviewId: null, action: null, review: null })}
+                  onClick={() => {
+                    setConfirmModal({ show: false, reviewId: null, action: null, review: null });
+                    setSelectedTemplate(null);
+                    setCustomMessage("");
+                  }}
                   className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
+
                 <button
-                  onClick={confirmAction}
+                  onClick={() => {
+                    if (confirmModal.action === "Rejected" && !customMessage.trim()) {
+                      alert("Please provide feedback for rejection.");
+                      return;
+                    }
+
+                    confirmAction();
+                  }}
                   className="text-white font-bold py-2 px-6 rounded-lg transition-colors"
                   style={{ backgroundColor: statusColor[confirmModal.action] }}
                 >

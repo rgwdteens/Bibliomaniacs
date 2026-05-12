@@ -24,6 +24,7 @@ from recommendationModel.embeddings import EmbeddingBuilder
 from recommendationModel.model import HybridRecommender
 from recommendationModel.evaluation import RecommenderEvaluator
 from recommendationModel.housedBooks.modelIncorp import (AvailabilityCache, AvailabilityService, ContextAwareRecommender)
+from recommendationModel.parsing import make_book_id, normalize_text
 import pickle
 import base64
 
@@ -42,8 +43,109 @@ firebase_admin.initialize_app(cred)
 connection(from_file="serviceKey.json")
 db = firestore.client()
 
-profanity.load_censor_words()  
+profanity.load_censor_words()
 
+REJECTION_REASON_TEMPLATES = {
+    "below_ya": """This book is categorized as Children's or Middle Grade. Please submit YA or above titles only.""",
+
+    "duplicate": """A review has already been submitted for this book. Please check the submitted reviews list before submitting.""",
+
+    "plagiarism": """Your review appears to contain copied material. All reviews must be original and written by the submitter.""",
+
+    "location": """We only accept submissions from Ridgewood, NJ students or those attending school in the area.""",
+
+    "limit": """You have exceeded the daily limit of two reviews. Please submit again on the next day."""
+}
+
+def firestore_reviews_to_model_format(firestore_reviews, books):
+    from recommendationModel.parsing import make_book_id, normalize_text
+    from recommendationModel.sentiment import ReviewSentimentAnalyzer
+
+    analyzer = ReviewSentimentAnalyzer()
+
+    for r in firestore_reviews:
+        if not r.approved:
+            continue
+
+        title = r.book_title
+        author = r.author
+
+        if not title or not author:
+            continue
+
+        book_id = make_book_id(title, author)
+
+        if book_id not in books:
+            books[book_id] = {
+                "title": title,
+                "author": author,
+                "genres": [],
+                "reviews": []
+            }
+        
+        try:
+            stars = int(r.rating)
+        except:
+            stars = None
+
+        raw_grades = r.recommended_audience_grade or []
+        clean_grades = []
+
+        if isinstance(raw_grades, list):
+            for g in raw_grades:
+                try:
+                    clean_grades.append(int(g))
+                except:
+                    continue
+        else:
+            try:
+                clean_grades.append(int(raw_grades))
+            except:
+                pass
+
+        seen = set()
+
+        key = (book_id, normalize_text(r.review or ""))
+
+        if key in seen:
+            continue
+        seen.add(key)
+
+        sentiment = analyzer.score(r.review) if r.review else 0.5
+
+        books[book_id]["reviews"].append({
+            "stars": int(r.rating) if r.rating else None,
+            "text": normalize_text(r.review or ""),
+            "recommended_grades": clean_grades,
+            "sentiment": sentiment
+        })
+
+    return books
+def firestore_ratings_to_book_data(ratings_docs, books):
+    for r in ratings_docs:
+        book_id = r.get("bookId")
+        rating = r.get("rating")
+
+        if not book_id or rating is None:
+            continue
+
+        if book_id not in books:
+            continue
+
+        try:
+            stars = int(rating)
+        except:
+            continue
+
+        # basically create synthetic review
+        books[book_id]["reviews"].append({
+            "stars": stars,
+            "text": "", 
+            "recommended_grades": [],
+            "sentiment": stars / 5 
+        })
+
+    return books
 def load_or_train_model():
     cache_key = "book_embeddings"
     cached = get_cache(cache_key)
@@ -85,7 +187,10 @@ availability_service = AvailabilityService(cache)
 
 books_data = load_books("./backend/recommendationModel/reviewedBooks.csv")
 books_data = load_reviews("./backend/recommendationModel/bigReviews.csv", books_data)
-
+firestore_reviews = list(Review.collection.fetch())
+books_data = firestore_reviews_to_model_format(firestore_reviews, books_data)
+ratings_docs = [doc.to_dict() for doc in db.collection("ratings").stream()]
+books_data = firestore_ratings_to_book_data(ratings_docs, books_data)
 book_embeddings, recommender, context_recommender = load_or_train_model()
 print("Model Ready.")
 
@@ -333,7 +438,7 @@ def notify_recipients(sender, recipients, book="", status=""):
             message = f"Your review of {book} was {status}"
         elif status == "rejected":
             icon = "x-circle"
-            message = f"Your review of {book} was {status}"
+            message = f"Your review of {book} was rejected. Tap to see feedback."
         elif status == "new_review":
             icon = "book"
             message = f"{sender} submitted a new review of {book}"
@@ -746,6 +851,141 @@ def get_commonly_reviewed_books():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+
+@app.route("/get_community_rating/<book_id>", methods=["GET"])
+def get_community_rating(book_id):
+    try:
+        book_ref = db.collection("reviews").document(book_id)
+        book_doc = book_ref.get()
+
+        if not book_doc.exists:
+            return jsonify({"average_rating": None, "rating_count": 0}), 200
+
+        data = book_doc.to_dict()
+        comm_rating = data.get("commRating")
+
+        if not comm_rating:
+            return jsonify({"average_rating": None, "rating_count": 0}), 200
+
+        return jsonify({
+            "average_rating": comm_rating.get("avgRating"),
+            "rating_count": comm_rating.get("total")
+        }), 200
+
+    except Exception as e:
+        print(f"Error fetching community rating: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+
+@app.route("/get_users_community_rating/<book_id>", methods=["POST"])
+def get_users_community_rating(book_id):
+    try:
+        data = request.get_json()
+        id_token = data.get("idToken")
+        decoded_token = verify_firebase_token(id_token)
+        if not decoded_token:
+            return jsonify({"error": "Invalid ID token"}), 401
+
+        uid = decoded_token["uid"]
+
+        # 1. Find user document by email (consistent with rest of codebase)
+        user_ref = db.collection("users").document(uid)
+        user_docs = user_ref.get()
+
+        if not user_docs:
+            return jsonify({"rating": None}), 200
+
+        user_data = user_docs.to_dict() or {}
+        general_ratings = user_data.get("generalRatings", [])
+
+        for r in general_ratings:
+            if r.get("bookId") == book_id:
+                return jsonify({"rating": r.get("rating")}), 200
+
+        return jsonify({"rating": None}), 200
+
+    except Exception as e:
+        print(f"Error fetching user community rating: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/submit_community_rating", methods=["POST"])
+def submit_community_rating():
+    try:
+        data = request.get_json()
+        id_token = data.get("idToken")
+        book_id = data.get("book_id")
+        rating = data.get("rating")
+
+        if not id_token:
+            return jsonify({"error": "Missing ID token"}), 401
+
+        decoded_token = verify_firebase_token(id_token)
+        if not decoded_token:
+            return jsonify({"error": "Invalid ID token"}), 401
+
+        uid = decoded_token["uid"]
+
+        # 1. Find user document by email (consistent with rest of codebase)
+        user_ref = db.collection("users").document(uid)
+        user_doc = user_ref.get()
+
+        if not user_doc:
+            return jsonify({"error": "User not found"}), 404
+
+        user_data = user_doc.to_dict() or {}
+        general_ratings = user_data.get("generalRatings", [])
+
+        # Sanitize any legacy nested arrays
+        general_ratings = [r for r in general_ratings if isinstance(r, dict)]
+
+        # Update if already rated, otherwise append
+        existing = next((r for r in general_ratings if r.get("bookId") == book_id), None)
+        if existing:
+            general_ratings = [r for r in general_ratings if r.get("bookId") != book_id]
+
+        general_ratings.append({"bookId": book_id, "rating": rating})
+        user_ref.update({"generalRatings": general_ratings})
+
+        book_ref = db.collection("reviews").document(book_id)
+        book_doc = book_ref.get()
+        book_data = book_doc.to_dict() or {}
+        comm_rating = book_data.get("commRating", {"avgRating": 0, "total": 0})
+
+        old_avg = comm_rating.get("avgRating", 0)
+        old_total = comm_rating.get("total", 0)
+
+        if existing:
+            old_rating = existing["rating"]
+            new_avg = ((old_avg * old_total) - old_rating + rating) / old_total
+            new_total = old_total
+        else:
+            new_total = old_total + 1
+            new_avg = ((old_avg * old_total) + rating) / new_total
+
+        book_ref.update({"commRating": {"avgRating": round(new_avg, 2), "total": new_total}})
+
+        rating_doc_id = f"{uid}_{book_id}"
+        rating_ref = db.collection("ratings").document(rating_doc_id)
+
+        rating_payload = {
+            "bookId": book_id,
+            "title": book_data.get("book_title", ""),
+            "author": book_data.get("author", ""),
+            "userEmail": user_data.get("email", ""),
+            "rating": rating
+        }
+
+        # set() works for both new and existing docs
+        rating_ref.set(rating_payload)
+
+        return jsonify({"new_average": round(new_avg, 2), "total": new_total}), 200
+
+    except Exception as e:
+        print(f"Error submitting community rating: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/ask_question", methods=["POST"])
 def ask_question():
@@ -1103,6 +1343,7 @@ def update_review(review_id):
         allowed_fields = [
             "approved",
             "comment_to_user",
+            "rejection_reason_key",
             "notes_to_admin",
             "added_to_reviewed_book_list",
             "call_number",
@@ -1122,21 +1363,34 @@ def update_review(review_id):
         status_changed = False
         email_draft = None
 
-        if "approved" in data:
-            updates["date_processed"] = datetime.now()
+        final_comment = updates.get("comment_to_user", review.get("comment_to_user"))
 
-            if not old_date_processed:
-                status_changed = True
-                new_status = "approved" if data["approved"] else "rejected"
+        updates["date_processed"] = datetime.now()
+        new_status = "approved" if data.get("approved") else "rejected"
 
-                email_draft = generate_email_draft(
-                    recipient_email=review["email"],
-                    recipient_name=f"{review['first_name']} {review['last_name']}",
-                    book_title=review["book_title"],
-                    author=review["author"],
-                    status=new_status,
-                    comment=updates.get("comment_to_user", review.get("comment_to_user"))
-                )
+        if not old_date_processed:
+            status_changed = True
+
+        if not data["approved"]:
+            reason_key = updates.get("rejection_reason_key")
+
+            template_text = REJECTION_REASON_TEMPLATES.get(reason_key)
+
+            if template_text:
+                if final_comment:
+                    final_comment = f"{template_text}\n\nAdditional notes:\n{final_comment}"
+                else:
+                    final_comment = template_text
+
+        email_draft = generate_email_draft(
+            recipient_email=review["email"],
+            recipient_name=f"{review['first_name']} {review['last_name']}",
+            book_title=review["book_title"],
+            author=review["author"],
+            status=new_status,
+            comment=updates.get("comment_to_user"),
+            rejection_reason_key=updates.get("rejection_reason_key")
+        )
 
         review_ref.update(updates)
         invalidate_review_caches(user_email=review.get("email"))
@@ -1149,6 +1403,28 @@ def update_review(review_id):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/get_user_hours_by_email", methods=["POST"])
+def get_user_hours_by_email():
+    data = request.get_json(silent=True) or {}
+    email = data.get("email")
+
+    if not email:
+        return jsonify({"error": "Missing email"}), 400
+
+    try:
+        reviews = Review.collection.filter('email', '==', email).fetch()
+
+        total_hours = sum(0.5 for r in reviews if r.approved)
+
+        return jsonify({
+            "email": email,
+            "total_hours": total_hours
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/get_email_draft/<review_id>", methods=["POST"])
 def get_email_draft_endpoint(review_id):
     """Generate email draft for a review (admin only)"""
@@ -1179,13 +1455,26 @@ def get_email_draft_endpoint(review_id):
 
         status = "approved" if review.get("approved") else "rejected"
 
+        comment = review.get("comment_to_user")
+
+        if status == "rejected":
+            reason_key = review.get("rejection_reason_key")
+            template_text = REJECTION_REASON_TEMPLATES.get(reason_key)
+
+            if template_text:
+                if comment:
+                    comment = f"{template_text}\n\nAdditional notes:\n{comment}"
+                else:
+                    comment = template_text
+
         email_draft = generate_email_draft(
             recipient_email=review["email"],
             recipient_name=f"{review['first_name']} {review['last_name']}",
             book_title=review["book_title"],
             author=review["author"],
             status=status,
-            comment=review.get("comment_to_user")
+            comment=review.get("comment_to_user"),
+            rejection_reason_key=review.get("rejection_reason_key")
         )
 
         return jsonify({"email_draft": email_draft}), 200
@@ -1391,21 +1680,50 @@ def get_recommendations():
         print(user_genres)
 
         past_reviews_query = Review.collection.filter('email', '==', email).fetch()
+        
         user_reviews = []
-        print("past ratings")
 
         for r in past_reviews_query:
-            print(r)
-
-            book_id = r.book_title.lower()
-            print(book_id)
+            if not r.book_title or r.rating is None:
+                continue
+            book_id = make_book_id(r.book_title, r.author)
 
             if book_id in books_data:
                 user_reviews.append({
                     "book_id": book_id,
-                    "rating": float(r.rating)
+                    "rating": float(r.rating),
+                    "source": "review"
                 })
-        print("user reviews:", user_reviews)
+
+        ratings_query = db.collection("ratings").where("userEmail", "==", email).stream()
+
+        for doc in ratings_query:
+            r = doc.to_dict()
+
+            book_id = (r.get("title") or "").lower().strip()
+            rating = r.get("rating")
+
+            if not book_id or rating is None:
+                continue
+
+            if book_id in books_data:
+                user_reviews.append({
+                    "book_id": book_id,
+                    "rating": float(rating),
+                    "source": "rating"
+                })
+        
+        deduped = {}
+        for r in user_reviews:
+            bid = r["book_id"]
+
+            if bid not in deduped:
+                deduped[bid] = r
+            else:
+                if r["source"] == "review":
+                    deduped[bid] = r
+
+        user_reviews = list(deduped.values())
         
         user_profile = recommender.build_user_profile(user_reviews)
 

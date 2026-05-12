@@ -29,8 +29,9 @@ class HybridRecommender:
 
             sentiment_weight = avg_sentiment
 
-            final_weight = stars * sentiment_weight
-
+            centered = (stars - 3) / 2
+            final_weight = centered
+            
             vectors.append(self.book_embeddings[book_id]["centroid"])
             weights.append(final_weight)
 
