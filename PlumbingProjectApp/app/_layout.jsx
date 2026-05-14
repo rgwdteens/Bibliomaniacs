@@ -31,6 +31,7 @@ export default function Layout() {
     if (pathname.startsWith("/admindashboard")) return "admindashboard";
     if (pathname.startsWith("/adminhomepage")) return "adminhomepage";
     if (pathname.startsWith("/login")) return "login";
+    if (pathname.startsWith("/certificate")) return "certificate";
 
     return "";
   }
@@ -451,8 +452,10 @@ export default function Layout() {
 
           {role === "user" && (
             <>
+              <NavItem icon="checkbox-outline" IconSet={Ionicons} label="Homepage" page="homepage" href="/homepage" />
               <NavItem icon="trending-up-outline" IconSet={Ionicons} label="Explorer" page="explorer" href="/explorer" />
               <NavItem icon="document-text-outline" IconSet={Ionicons} label="My Reviews" page="myreviews" href="/myreviews" />
+              <NavItem icon="file-tray-full-outline" IconSet={Ionicons} label="Certificates" page="certificate" href="/certificate" />
               <NavItem icon="checkbox-outline" IconSet={Ionicons} label="Profile" page="profile" href="/profile" />
             </>
           )}
