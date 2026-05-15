@@ -4,7 +4,7 @@ export default function NotFound() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Page Not Found</Text>
-          <Text style={styles.userText}>lol loser you got lost :p</Text>
+          <Text style={styles.userText}>The page you were looking for does not exist</Text>
     </View>
   );
 }

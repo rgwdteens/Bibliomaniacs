@@ -144,7 +144,7 @@ export default function AdminReviews() {
     }
   ];
 
-  const filtered = reviews.filter((r) => {
+  const filtered_rev = reviews.filter((r) => {
     const searchLower = search.toLowerCase();
     const matchSearch =
       r.book_title?.toLowerCase().includes(search.toLowerCase()) ||
@@ -153,7 +153,9 @@ export default function AdminReviews() {
       r.email?.toLowerCase().includes(searchLower);
     const matchFrom = !fromDate || new Date(r.date_received) >= new Date(fromDate);
     const matchTo = !toDate || new Date(r.date_received) <= new Date(toDate);
-    return matchSearch && matchFrom && matchTo;
+    const status = r.approved ? "Approved" : (r.date_processed ? "Rejected" : "Pending");
+    const matchStatus = statusFilter === "All" || status === statusFilter;
+    return matchSearch && matchFrom && matchTo && matchStatus;
   });
 
   const handleActionClick = (review, newStatus) => {
@@ -295,7 +297,6 @@ export default function AdminReviews() {
     setLoadingDraft(reviewId);
     try {
       const idToken = await getIdToken();
-      console.log("Review #1: " + reviewId);
       const response = await fetch(`http://localhost:5001/get_email_draft/${reviewId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -357,7 +358,7 @@ export default function AdminReviews() {
       "Email Sent", "Call Number", "Notes"
     ];
 
-    const rows = filtered.map(r => [
+    const rows = filtered_rev.map(r => [
       r.entry_id, r.date_received, r.date_processed, r.first_name, r.last_name,
       r.grade, r.school, r.email, r.phone_number, r.book_title, r.author,
       r.recommended_audience_grade?.join(", "), r.rating, r.review, r.anonymous,
@@ -562,7 +563,7 @@ export default function AdminReviews() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((r) => {
+                    {filtered_rev.map((r) => {
                       const status = r.approved ? "Approved" : (r.date_processed ? "Rejected" : "Pending");
                       const isUpdating = updating === r.id;
 
@@ -671,7 +672,7 @@ export default function AdminReviews() {
                         </tr>
                       );
                     })}
-                    {filtered.length === 0 && (
+                    {filtered_rev.length === 0 && (
                       <tr>
                         <td colSpan="9" className="text-center py-12 text-gray-500">
                           No reviews match your filters.

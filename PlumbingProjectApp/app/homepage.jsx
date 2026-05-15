@@ -147,7 +147,7 @@ export default function LandingPage() {
       if (response.ok) {
         const data = await response.json();
         setBookOfWeek(data);
-        console.log(bookOFWeek);
+        console.log(bookOfWeek);
       } else {
         console.error("Failed to fetch book of the week");
       }
@@ -267,7 +267,7 @@ export default function LandingPage() {
 
               <Pressable
                 className="landingPrimaryBtn self-start"
-                onPress={() => navigation?.navigate?.("explorer")}
+                onPress={() => navigation?.navigate?.("myreviews")}
               >
                 <Text className="landingPrimaryText">Add a Review</Text>
               </Pressable>

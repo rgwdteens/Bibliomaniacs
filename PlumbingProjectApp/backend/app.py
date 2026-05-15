@@ -1181,12 +1181,12 @@ def get_reviews():
     
     query = Review.collection
     
-    if status == "approved":
-        query = query.filter('approved', '==', True)
-    elif status == "pending":
-        query = query.filter('approved', '==', False).filter('date_processed', '==', None)
-    elif status == "rejected":
-        query = query.filter('approved', '==', False)
+    # if status == "approved":
+    #     query = query.filter('approved', '==', True)
+    # elif status == "pending":
+    #     query = query.filter('approved', '==', False).filter('date_processed', '==', None)
+    # elif status == "rejected":
+    #     query = query.filter('approved', '==', False)
     
     if grade is not None:
         query = query.filter('grade', '==', grade)

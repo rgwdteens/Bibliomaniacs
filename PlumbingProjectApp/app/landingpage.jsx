@@ -141,10 +141,6 @@ export default function LandingPage() {
 
 
   return (
-    <RequireAccess
-      allowRoles={["no account", null]}
-      redirectTo="/notfound"
-    >
     <ScrollView className="landingPageRoot landingScroll">
       {/* === TOP BAND === */}
       <View className="landingTopSection">
@@ -322,7 +318,6 @@ export default function LandingPage() {
         </View>
       </View>
     </ScrollView>
-    </RequireAccess>
   );
 }
 
