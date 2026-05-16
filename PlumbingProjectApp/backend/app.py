@@ -1865,6 +1865,113 @@ def get_recommendations():
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
+@app.route("/get_recommended_reviews", methods=["POST"])
+def get_recommended_reviews():
+    try:
+        data = request.json
+        id_token = data.get("idToken")
+
+        if not id_token or not verify_firebase_token(id_token):
+            return jsonify({"error": "Unauthorized"}), 401
+
+        decoded = auth.verify_id_token(id_token)
+        uid = decoded["uid"]
+        email = decoded.get("email")
+
+        user_doc = db.collection("users").document(uid).get().to_dict() or {}
+
+        user_grade = user_doc.get("grade", 8)
+        user_genres = user_doc.get("favoriteGenres", ["fantasy"])
+
+        past_reviews_query = Review.collection.filter(
+            'email', '==', email
+        ).fetch()
+
+        user_reviews = []
+
+        for r in past_reviews_query:
+            if not r.book_title or r.rating is None:
+                continue
+
+            book_id = make_book_id(r.book_title, r.author)
+
+            if book_id in books_data:
+                user_reviews.append({
+                    "book_id": book_id,
+                    "rating": float(r.rating),
+                    "source": "review"
+                })
+
+        user_profile = recommender.build_user_profile(user_reviews)
+
+        reviews = Review.collection.filter(
+            'approved', '==', True
+        ).fetch()
+
+        reviewed_book_ids = set()
+
+        for r in reviews:
+            if r.book_title:
+                reviewed_book_ids.add(
+                    make_book_id(r.book_title, r.author)
+                )
+
+        total_books = len(reviewed_book_ids)
+
+        if user_profile is None:
+            recommendations = recommender.cold_start_recommend(
+                user_genres=user_genres,
+                user_grade=float(user_grade),
+                top_k=total_books
+            )
+        else:
+            recommendations = context_recommender.recommend(
+                user_profile=user_profile,
+                user_reviews=user_reviews,
+                user_genres=user_genres,
+                user_grade=user_grade,
+                top_k=total_books
+            )
+
+        recommendation_map = {
+            book_id: score
+            for book_id, score in recommendations
+        }
+
+        reviews = Review.collection.filter(
+            'approved', '==', True
+        ).fetch()
+
+        output = []
+
+        for r in reviews:
+            book_id = make_book_id(r.book_title, r.author)
+
+            output.append({
+                "id": r.id,
+                "book_title": r.book_title,
+                "author": r.author,
+                "review": r.review,
+                "rating": r.rating,
+                "date_received": r.date_received,
+                "first_name": r.first_name,
+                "last_name": r.last_name,
+                "anonymous": r.anonymous,
+                "recommendation_score":
+                    recommendation_map.get(book_id, 0)
+            })
+
+        output.sort(
+            key=lambda x: x["recommendation_score"],
+            reverse=True
+        )
+
+        return jsonify(output), 200
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/clear_cache", methods=["POST"])
 def clear_cache():

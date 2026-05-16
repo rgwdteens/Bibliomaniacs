@@ -16,7 +16,6 @@ export default function AllReviews() {
   const [userStarHover, setUserStarHover] = useState(0);
   const { reviewId } = useLocalSearchParams();
 
-  // Fetch approved reviews from backend
   useEffect(() => {
     fetch('http://localhost:5001/clear_cache', { method: 'POST' })
     fetchReviews();
@@ -32,7 +31,7 @@ export default function AllReviews() {
 
       const auth = getAuth();
       const user = auth.currentUser;
-      if (!user) return; // silently skip if not logged in
+      if (!user) return; 
 
       const idToken = await user.getIdToken(true);
       const res2 = await fetch(`http://localhost:5001/get_users_community_rating/${bookId}`, {
@@ -42,7 +41,7 @@ export default function AllReviews() {
       });
       const data2 = await res2.json();
       if (res2.ok && data2.rating !== null) {
-        setUserRating(data2.rating); // convert back to 1-5 scale for star display
+        setUserRating(data2.rating);
       }
       console.log(userRating);
     } catch (err) {
@@ -85,11 +84,40 @@ export default function AllReviews() {
   const fetchReviews = async () => {
     setLoading(true);
     setError(null);
+
     try {
-      const res = await fetch("http://localhost:5001/get_reviews?status=approved");
-      if (!res.ok) throw new Error("Failed to fetch reviews");
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      let res;
+
+      if (user) {
+        const idToken = await user.getIdToken(true);
+
+        res = await fetch(
+          "http://localhost:5001/get_recommended_reviews",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ idToken })
+          }
+        );
+      } else {
+        res = await fetch(
+          "http://localhost:5001/get_reviews?status=approved"
+        );
+      }
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch reviews");
+      }
+
       const data = await res.json();
+
       setReviews(data);
+
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -127,10 +155,37 @@ export default function AllReviews() {
     filtered.sort((a, b) => new Date(b.date_received) - new Date(a.date_received));
   } else if (filter === "Oldest") {
     filtered.sort((a, b) => new Date(a.date_received) - new Date(b.date_received));
+  } else if (filter === "Best Match") {
+    filtered.sort((a, b) => {
+      const scoreDiff =
+        (b.recommendation_score || 0) -
+        (a.recommendation_score || 0);
+
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      return a.book_title.localeCompare(b.book_title);
+    });
+
+  } else if (filter === "Worst Match") {
+    filtered.sort((a, b) => {
+      const scoreDiff =
+        (a.recommendation_score || 0) -
+        (b.recommendation_score || 0);
+
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      return b.book_title.localeCompare(a.book_title);
+    });
   }
 
   const filterOptions = [
     { label: "All", icon: Filter },
+    { label: "Best Match", icon: ThumbsUp },
+    { label: "Worst Match", icon: TrendingDown },
     { label: "Top Rated", icon: TrendingUp },
     { label: "Lowest Rated", icon: TrendingDown },
     { label: "Newest", icon: Calendar },
