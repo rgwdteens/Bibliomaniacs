@@ -64,7 +64,7 @@ class HybridRecommender:
 
     def genre_score(self, user_genres, book_genres):
         if not user_genres or not book_genres:
-            return 0.0
+            return 0.3
         return len(set(user_genres) & set(book_genres)) / len(set(user_genres))
 
     def grade_score(self, user_grade, book):

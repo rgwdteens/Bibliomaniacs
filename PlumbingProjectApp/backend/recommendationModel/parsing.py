@@ -36,10 +36,15 @@ def load_books(csv_path):
     books = {}  
     for _, row in df.iterrows():
         book_id = make_book_id(row["TITLE"], row["AUTHOR"])
+        genres = tokenize_genres(row["GENRE"])
+
+        if not genres:
+            genres = fetch_wikipedia_genres(row["TITLE"], row["AUTHOR"])
+
         books[book_id] = {
             "title": row["TITLE"].strip(),
             "author": row["AUTHOR"].strip(),
-            "genres": tokenize_genres(row["GENRE"]),
+            "genres": genres,
             "reviews": []
         }
 

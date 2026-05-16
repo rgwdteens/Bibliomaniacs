@@ -15,6 +15,21 @@ export default function AllReviews() {
   const [userRating, setUserRating] = useState(0);
   const [userStarHover, setUserStarHover] = useState(0);
   const { reviewId } = useLocalSearchParams();
+  const GENRE_IMAGES = {
+    horror: "https://images.unsplash.com/photo-1509565840034-3c385bbe6451",
+    fantasy: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23",
+    "sci-fi": "https://images.unsplash.com/photo-1451187580459-43490279c0fa",
+    sci: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa",
+    romance: "https://images.unsplash.com/photo-1518199266791-5375a83190b7",
+    mystery: "https://images.unsplash.com/photo-1524985069026-dd778a71c7b4",
+    thriller: "https://images.unsplash.com/photo-1517971071642-34a2d3ecc9cd",
+    "historical-fiction": "https://images.unsplash.com/photo-1461360228754-6e81c478b882",
+    "young-adult": "https://images.unsplash.com/photo-1529156069898-49953e39b3ac",
+    horror: "https://images.unsplash.com/photo-1509565840034-3c385bbe6451",
+    dystopian: "https://images.unsplash.com/photo-1520975922323-9d5f6f6b2c5b",
+    "literary-fiction": "https://images.unsplash.com/photo-1481627834876-b7833e8f5570",
+    default: "https://images.unsplash.com/photo-1519682337058-a94d519337bc"
+  };
 
   useEffect(() => {
     fetch('http://localhost:5001/clear_cache', { method: 'POST' })
@@ -47,6 +62,17 @@ export default function AllReviews() {
     } catch (err) {
       console.error("Failed to fetch community rating:", err);
     }
+  };
+
+  const getBookImage = (book) => {
+    const genres = book.genres || [];
+
+    for (let g of genres) {
+      const key = g.toLowerCase();
+      if (GENRE_IMAGES[key]) return GENRE_IMAGES[key];
+    }
+
+    return GENRE_IMAGES.default;
   };
 
   const handleSubmitCommunityRating = async (bookId, star) => {
@@ -431,6 +457,11 @@ export default function AllReviews() {
                          transition-all duration-300 transform hover:-translate-y-1
                          border border-emerald-100 p-4 text-left cursor-pointer group"
               >
+
+              <img
+                src={getBookImage(r)}
+                className="w-full h-28 object-cover rounded-lg mb-2"
+              />
                 <div className="space-y-2">
                   {/* Title and Author */}
                   <div>

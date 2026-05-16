@@ -25,6 +25,8 @@ from recommendationModel.model import HybridRecommender
 from recommendationModel.evaluation import RecommenderEvaluator
 from recommendationModel.housedBooks.modelIncorp import (AvailabilityCache, AvailabilityService, ContextAwareRecommender)
 from recommendationModel.parsing import make_book_id, normalize_text
+from recommendationModel.genreCategorization import fetch_wikipedia_genres
+from genre_images import get_genre_image
 import pickle
 import base64
 
@@ -44,6 +46,8 @@ connection(from_file="serviceKey.json")
 db = firestore.client()
 
 profanity.load_censor_words()
+
+genre_cache = {}
 
 REJECTION_REASON_TEMPLATES = {
     "below_ya": """This book is categorized as Children's or Middle Grade. Please submit YA or above titles only.""",
@@ -76,10 +80,12 @@ def firestore_reviews_to_model_format(firestore_reviews, books):
         book_id = make_book_id(title, author)
 
         if book_id not in books:
+            genres = fetch_wikipedia_genres(title, author)
+
             books[book_id] = {
                 "title": title,
                 "author": author,
-                "genres": [],
+                "genres": genres,
                 "reviews": []
             }
         
@@ -130,12 +136,22 @@ def firestore_ratings_to_book_data(ratings_docs, books):
             continue
 
         if book_id not in books:
-            continue
+            books[book_id] = {
+                "title": book_id,
+                "author": "",
+                "genres": [],
+                "reviews": []
+            }
 
         try:
             stars = int(rating)
         except:
             continue
+
+        if not books[book_id]["genres"]:
+            books[book_id]["genres"] = fetch_wikipedia_genres(
+                books[book_id]["title"]
+            )
 
         # basically create synthetic review
         books[book_id]["reviews"].append({
@@ -191,6 +207,12 @@ firestore_reviews = list(Review.collection.fetch())
 books_data = firestore_reviews_to_model_format(firestore_reviews, books_data)
 ratings_docs = [doc.to_dict() for doc in db.collection("ratings").stream()]
 books_data = firestore_ratings_to_book_data(ratings_docs, books_data)
+for book_id, book in books_data.items():
+    if not book.get("genres"):
+        book["genres"] = fetch_wikipedia_genres(
+            book["title"],
+            book.get("author")
+        )
 book_embeddings, recommender, context_recommender = load_or_train_model()
 print("Model Ready.")
 
@@ -1164,6 +1186,21 @@ def bulk_import_reviews():
         "total_attempted": len(reviews_data)
     }), 201 if not failed_imports else 207
 
+def safe_genres(title, author):
+    try:
+        return fetch_wikipedia_genres(title, author) or []
+    except:
+        return []
+
+def get_cached_genres(title, author):
+    key = (title or "", author or "")
+    
+    if key in genre_cache:
+        return genre_cache[key]
+
+    genres = safe_genres(title, author)
+    genre_cache[key] = genres
+    return genres
 @app.route("/get_reviews", methods=["GET"])
 def get_reviews():
     cache_key = reviews_cache_key(request.args)
@@ -1198,6 +1235,9 @@ def get_reviews():
     
     results = []
     for r in reviews:
+
+        genres = get_cached_genres(r.book_title, r.author)
+
         # Apply email sent filter
         if email_sent_filter:
             if email_sent_filter == "sent" and not r.sent_confirmation_email:
@@ -1233,6 +1273,7 @@ def get_reviews():
             "form_url": r.form_url,
             "notes_to_admin": r.notes_to_admin,
             "comment_to_user": r.comment_to_user,
+            "genres": genres,
         }
         
         if search:
@@ -1899,7 +1940,8 @@ def get_recommended_reviews():
                 user_reviews.append({
                     "book_id": book_id,
                     "rating": float(r.rating),
-                    "source": "review"
+                    "source": "review",
+                    "genres": books_data.get(book_id, {}).get("genres", [])
                 })
 
         user_profile = recommender.build_user_profile(user_reviews)
