@@ -36,6 +36,12 @@ export default function LandingPage() {
     horror: "https://images.unsplash.com/photo-1509565840034-3c385bbe6451",
     dystopian: "https://images.unsplash.com/photo-1520975922323-9d5f6f6b2c5b",
     "literary-fiction": "https://images.unsplash.com/photo-1481627834876-b7833e8f5570",
+    classics: "https://images.unsplash.com/photo-1512820790803-83ca734da794",
+    classic: "https://images.unsplash.com/photo-1512820790803-83ca734da794",
+    fiction: "https://unsplash.com/photos/imagination-book-of-nature-fantasy-illustration-mdt3M_xo9sQ",
+    novel: "https://unsplash.com/photos/imagination-book-of-nature-fantasy-illustration-mdt3M_xo9sQ",
+    contemporary: "https://images.unsplash.com/photo-1495446815901-a7297e633e8d",
+    drama: "https://images.unsplash.com/photo-1495446815901-a7297e633e8d",
     default: "https://images.unsplash.com/photo-1519682337058-a94d519337bc"
   };
 
@@ -160,10 +166,6 @@ export default function LandingPage() {
 
 
   return (
-    <RequireAccess
-      allowRoles={["no account", null]}
-      redirectTo="/notfound"
-    >
     <ScrollView className="landingPageRoot landingScroll">
       {/* === TOP BAND === */}
       <View className="landingTopSection">
@@ -341,7 +343,6 @@ export default function LandingPage() {
         </View>
       </View>
     </ScrollView>
-    </RequireAccess>
   );
 }
 
