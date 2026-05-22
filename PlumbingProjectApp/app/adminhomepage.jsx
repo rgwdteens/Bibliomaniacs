@@ -19,7 +19,7 @@ export default function AdminHomePage() {
     fantasy: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23",
     "sci-fi": "https://images.unsplash.com/photo-1451187580459-43490279c0fa",
     sci: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa",
-    romance: "https://images.unsplash.com/photo-1518199266791-5375a83190b7",
+    Romance: "https://images.unsplash.com/photo-1518199266791-5375a83190b7",
     mystery: "https://images.unsplash.com/photo-1524985069026-dd778a71c7b4",
     thriller: "https://images.unsplash.com/photo-1517971071642-34a2d3ecc9cd",
     "historical-fiction": "https://images.unsplash.com/photo-1461360228754-6e81c478b882",

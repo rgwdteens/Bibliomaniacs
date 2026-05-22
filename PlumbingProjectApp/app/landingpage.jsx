@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useRouter } from "expo-router";
-import { View, Text, TextInput, Pressable, FlatList, StyleSheet, ScrollView, Alert, Dimensions } from "react-native";
+import { View, Text, TextInput, Pressable, FlatList, StyleSheet, ScrollView, Alert, Dimensions, ImageBackground } from "react-native";
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, } from "firebase/auth";
 import Carousel from "react-native-reanimated-carousel";
@@ -19,6 +19,7 @@ export default function LandingPage() {
   const [authReady, setAuthReady] = useState(false);
   const [loadingBook, setLoadingBook] = useState(true);
   const API_BASE_URL = "http://localhost:5001";
+  const [bookOfTheWeekGenre, setbookOfTheWeekGenre] = useState("");
 
 
   const [index, setIndex] = useState(0);
@@ -45,22 +46,42 @@ export default function LandingPage() {
     default: "https://images.unsplash.com/photo-1519682337058-a94d519337bc"
   };
 
+  const [bookOfWeek, setBookOfWeek] = useState({
+    title: "",
+    author: "",
+    lastUpdated: "",
+  });
+
   const getGenreImage = (genres) => {
     if (!genres || genres.length === 0) {
       return GENRE_IMAGES.default;
     }
 
     for (const g of genres) {
-      const normalized = g.toLowerCase().trim();
+      if (g) {
+        const normalized = g.toLowerCase().trim();
 
-      if (GENRE_IMAGES[normalized]) {
-        return GENRE_IMAGES[normalized];
+        if (GENRE_IMAGES[normalized]) {
+          return GENRE_IMAGES[normalized];
+        }
       }
     }
 
     return GENRE_IMAGES.default;
   };
 
+  const getBookOfWeekImage = (book) => {
+    const genres = book?.genres || [book?.genre];
+    return getGenreImage(genres);
+  };
+
+  useEffect(() => {
+    if (bookOfWeek?.genres || bookOfWeek?.genre) {
+      const genres = bookOfWeek.genres || [bookOfWeek.genre];
+      setbookOfTheWeekGenre(genres[0]);
+    }
+  }, [bookOfWeek]);
+  
   const next = () => {
     setIndex((prev) => (prev + 1) % topRecs.length);
   };
@@ -69,7 +90,23 @@ export default function LandingPage() {
     setIndex((prev) => (prev - 1 + topRecs.length) % topRecs.length);
   };
 
-  const [topRecs, setTopRecs] = useState([]);
+  const topRecs = [
+    {
+      title: "Harry Potter",
+      meta: "Fantasy · 4.7 ★",
+      genres: ["fantasy"],
+    },
+    {
+      title: "Atomic Habits",
+      meta: "Non-fiction · 4.6 ★",
+      genres: ["contemporary"],
+    },
+    {
+      title: "Dark Matter",
+      meta: "Sci-fi · 4.9 ★",
+      genres: ["sci-fi"],
+    },
+  ];
 
   const getUserRole = async (user) => {
     const idToken = await user.getIdToken(true);
@@ -120,12 +157,6 @@ export default function LandingPage() {
     "descr": "Quick Read", 
     "blurb": "The conscience of a town steeped in prejudice, violence and hypocrisy is pricked by the stamina of one man's struggle for justice. But the weight of history will only tolerate so much."
   }
-
-  const [bookOfWeek, setBookOfWeek] = useState({
-    title: "",
-    author: "",
-    lastUpdated: "",
-  });
 
   useEffect(() => {
     const auth = getAuth();
@@ -213,16 +244,32 @@ export default function LandingPage() {
             <Text className="bookWeekLabel">Book of the Week</Text>
             <Text className="bookWeekTitle">{bookOfWeek.title}</Text>
 
-            <View className="bookWeekCover" />
+            <ImageBackground
+                source={{ uri: getBookOfWeekImage(bookOfWeek) }}
+                className="bookWeekCover"
+                imageStyle={{ borderRadius: 16 }}
+              >
+                <View
+                  style={{
+                    flex: 1,
+                    backgroundColor: "rgba(0,0,0,0.25)",
+                    justifyContent: "flex-end",
+                    padding: 12,
+                    borderRadius: 16,
+                  }}
+                >
+                </View>
+              </ImageBackground>
 
             <View className="bookWeekMetaRow">
-              <View className="bookWeekTag">
-                <Text className="bookWeekTagText">{bookOfTheWeek["genre"]} · {bookOfTheWeek["stars"]} ★</Text>
+                <View className="bookWeekTag">
+                  <Text className="bookWeekTagText">
+                    {bookOfTheWeekGenre}
+                  </Text>
+                </View>
               </View>
-              <Text className="bookWeekPages">{bookOfTheWeek["pages"]} · {bookOfTheWeek["descr"]}</Text>
-            </View>
 
-            <Text className="bookWeekBlurb">{bookOfTheWeek["blurb"]}</Text>
+              <Text className="bookWeekBlurb">{bookOfTheWeek.blurb}</Text>
           </View>
         </View>
       </View>
@@ -295,7 +342,23 @@ export default function LandingPage() {
                   }}
                   className="carouselCard"
                 >
-                  <View className="carouselThumb" />
+                  <ImageBackground
+                    source={{ uri: getGenreImage(item.genres) }}
+                    className="carouselThumb"
+                    imageStyle={{
+                      borderTopLeftRadius: 16,
+                      borderTopRightRadius: 16,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flex: 1,
+                        backgroundColor: "rgba(0,0,0,0.25)",
+                        borderTopLeftRadius: 16,
+                        borderTopRightRadius: 16,
+                      }}
+                    />
+                  </ImageBackground>
                   <Text className="carouselTitle">{item.title}</Text>
                   <Text className="carouselMeta">{item.meta}</Text>
                 </View>

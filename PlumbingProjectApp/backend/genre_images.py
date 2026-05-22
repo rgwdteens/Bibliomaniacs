@@ -3,7 +3,7 @@ GENRE_IMAGE_MAP = {
     "fantasy": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23",
     "science-fiction": "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa",
     "sci-fi": "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa",
-    "romance": "https://images.unsplash.com/photo-1518199266791-5375a83190b7",
+    "Romance": "https://images.unsplash.com/photo-1518199266791-5375a83190b7",
     "mystery": "https://images.unsplash.com/photo-1524985069026-dd778a71c7b4",
     "thriller": "https://images.unsplash.com/photo-1517971071642-34a2d3ecc9cd",
     "default": "https://images.unsplash.com/photo-1519682337058-a94d519337bc"
