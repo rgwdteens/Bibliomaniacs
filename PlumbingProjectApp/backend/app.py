@@ -73,6 +73,8 @@ def firestore_reviews_to_model_format(firestore_reviews, books):
 
     analyzer = ReviewSentimentAnalyzer()
 
+    seen = set()
+
     for r in firestore_reviews:
         if not r.approved:
             continue
@@ -86,6 +88,7 @@ def firestore_reviews_to_model_format(firestore_reviews, books):
         book_id = make_book_id(title, author)
 
         if book_id not in books:
+
             genres = fetch_wikipedia_genres(title, author)
 
             books[book_id] = {
@@ -115,8 +118,6 @@ def firestore_reviews_to_model_format(firestore_reviews, books):
             except:
                 pass
 
-        seen = set()
-
         key = (book_id, normalize_text(r.review or ""))
 
         if key in seen:
@@ -135,19 +136,37 @@ def firestore_reviews_to_model_format(firestore_reviews, books):
     return books
 def firestore_ratings_to_book_data(ratings_docs, books):
     for r in ratings_docs:
-        book_id = r.get("bookId")
+        title = r.get("title")
+        author = r.get("author")
+
+        if not title or not author:
+            continue
+
+        book_id = make_book_id(title, author)
         rating = r.get("rating")
 
         if not book_id or rating is None:
             continue
 
+        title = r.get("title")
+        author = r.get("author")
+
+        if not title or not author:
+            continue
+
+        book_id = make_book_id(title, author)
+
         if book_id not in books:
+
+            genres = fetch_wikipedia_genres(title, author)
+
             books[book_id] = {
-                "title": book_id,
-                "author": "",
-                "genres": [],
+                "title": title,
+                "author": author,
+                "genres": genres,
                 "reviews": []
             }
+        
 
         try:
             stars = int(rating)
@@ -1241,8 +1260,8 @@ def get_cached_genres(title, author):
 def get_reviews():
     cache_key = reviews_cache_key(request.args)
     cached = get_cache(cache_key)
-    if cached:
-        return jsonify(cached), 200
+    # if cached:
+    #     return jsonify(cached), 200
     
     status = request.args.get("status")
     grade = request.args.get("grade", type=int)
@@ -1272,7 +1291,7 @@ def get_reviews():
     results = []
     for r in reviews:
 
-        genres = get_cached_genres(r.book_title, r.author)
+        genres = r.genres or get_cached_genres(r.book_title, r.author)
 
         # Apply email sent filter
         if email_sent_filter:
@@ -2008,7 +2027,7 @@ def get_recommendations():
 
         user_doc = db.collection("users").document(uid).get().to_dict() or {}
         user_grade = user_doc.get("grade", 8) 
-        user_genres = user_doc.get("favoriteGenres", ["fantasy", "adventure"])
+        user_genres = user_doc.get("favoriteGenres", ["fantasy","adventure"])
         print(user_grade) 
         print(user_genres)
 
@@ -2033,7 +2052,10 @@ def get_recommendations():
         for doc in ratings_query:
             r = doc.to_dict()
 
-            book_id = (r.get("title") or "").lower().strip()
+            book_id = make_book_id(
+                r.get("title"),
+                r.get("author")
+            )
             rating = r.get("rating")
 
             if not book_id or rating is None:
@@ -2145,7 +2167,7 @@ def get_recommended_reviews():
         user_doc = db.collection("users").document(uid).get().to_dict() or {}
 
         user_grade = user_doc.get("grade", 8)
-        user_genres = user_doc.get("favoriteGenres", ["fantasy"])
+        user_genres = user_doc.get("favoriteGenres", ["fantasy","adventure"])
 
         past_reviews_query = Review.collection.filter(
             'email', '==', email
