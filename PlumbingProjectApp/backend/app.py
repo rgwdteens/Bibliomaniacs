@@ -1315,7 +1315,12 @@ def get_reviews():
     results = []
     for r in reviews:
 
-        genres = r.genres
+        try:
+            genres = r.genres
+        except:
+            genres=None
+            print(r)
+            print("no")
 
         if not genres:
             genres = get_cached_genres(r.book_title, r.author)
