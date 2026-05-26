@@ -16,3 +16,4 @@ numpy
 pandas
 scipy
 matplotlib
+reportlab
