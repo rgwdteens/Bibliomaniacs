@@ -48,6 +48,8 @@ class Review(Model):
     form_url = TextField()
     notes_to_admin = TextField()
     comment_to_user = TextField()
+
+    genres = ListField()
     
     class Meta:
         collection_name = 'reviews'

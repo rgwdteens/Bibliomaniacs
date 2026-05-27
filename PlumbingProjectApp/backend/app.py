@@ -887,7 +887,7 @@ def check_book_popularity():
 
 @app.route("/get_commonly_reviewed_books", methods=["GET"])
 def get_commonly_reviewed_books():
-    threshold = request.args.get("threshold", 3, type=int)
+    threshold = request.args.get("threshold", 2, type=int)
     days = request.args.get("days", 365, type=int)
 
     cache_key = f"commonly_reviewed_books:{threshold}:{days}"
@@ -1142,7 +1142,7 @@ def submit_review():
         review = create_review(data)
         invalidate_review_caches(user_email=review.email)
         
-        remaining = 2 - (daily_count + 1)
+        remaining = 12 - (daily_count + 1)
         review_text = data.get("review", "")
         if profanity.contains_profanity(review_text):
             return jsonify({"error": "Review contains inappropriate language."}), 400
