@@ -21,7 +21,7 @@ export default function LandingPage() {
   const [bookOfTheWeekGenre, setbookOfTheWeekGenre] = useState("");
   const [selectedReview, setSelectedReview] = useState(null);
   const [reviewMessage, setReviewMessage] = useState("");
-  const API_BASE_URL = "http://localhost:5001";
+  const API_BASE_URL = "https://bibliomaniacs.onrender.com";
 
   const GENRE_IMAGES = {
     horror: "https://images.unsplash.com/photo-1504701954957-2010ec3bcec1",

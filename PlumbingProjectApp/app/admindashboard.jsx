@@ -33,7 +33,7 @@ const [reviewStats, setReviewStats] = useState({
 
   const totalReviews = reviewStats.approved + reviewStats.pending + reviewStats.rejected;
 
-  const API_BASE_URL = "http://localhost:5001";
+  const API_BASE_URL = "https://bibliomaniacs.onrender.com";
 
   const getIdToken = async () => {
     try {

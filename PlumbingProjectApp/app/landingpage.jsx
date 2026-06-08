@@ -18,7 +18,7 @@ export default function LandingPage() {
 
   const [authReady, setAuthReady] = useState(false);
   const [loadingBook, setLoadingBook] = useState(true);
-  const API_BASE_URL = "http://localhost:5001";
+  const API_BASE_URL = "https://bibliomaniacs.onrender.com";
   const [bookOfTheWeekGenre, setbookOfTheWeekGenre] = useState("");
 
 
