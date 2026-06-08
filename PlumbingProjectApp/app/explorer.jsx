@@ -227,37 +227,10 @@ export default function AllReviews() {
     filtered.sort((a, b) => new Date(b.date_received) - new Date(a.date_received));
   } else if (filter === "Oldest") {
     filtered.sort((a, b) => new Date(a.date_received) - new Date(b.date_received));
-  } else if (filter === "Best Match") {
-    filtered.sort((a, b) => {
-      const scoreDiff =
-        (b.recommendation_score || 0) -
-        (a.recommendation_score || 0);
-
-      if (scoreDiff !== 0) {
-        return scoreDiff;
-      }
-
-      return a.book_title.localeCompare(b.book_title);
-    });
-
-  } else if (filter === "Worst Match") {
-    filtered.sort((a, b) => {
-      const scoreDiff =
-        (a.recommendation_score || 0) -
-        (b.recommendation_score || 0);
-
-      if (scoreDiff !== 0) {
-        return scoreDiff;
-      }
-
-      return b.book_title.localeCompare(a.book_title);
-    });
   }
 
   const filterOptions = [
     { label: "All", icon: Filter },
-    { label: "Best Match", icon: ThumbsUp },
-    { label: "Worst Match", icon: TrendingDown },
     { label: "Top Rated", icon: TrendingUp },
     { label: "Lowest Rated", icon: TrendingDown },
     { label: "Newest", icon: Calendar },

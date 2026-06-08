@@ -25,17 +25,17 @@ import os
 from email_utils import generate_email_draft, generate_bulk_email_drafts
 from better_profanity import profanity
 import logging
-from recommendationModel.parsing import load_books, load_reviews
-from recommendationModel.embeddings import EmbeddingBuilder
-from recommendationModel.model import HybridRecommender
-from recommendationModel.evaluation import RecommenderEvaluator
+# from recommendationModel.parsing import load_books, load_reviews
+# from recommendationModel.embeddings import EmbeddingBuilder
+# from recommendationModel.model import HybridRecommender
+# from recommendationModel.evaluation import RecommenderEvaluator
 from recommendationModel.housedBooks.modelIncorp import (AvailabilityCache, AvailabilityService, ContextAwareRecommender)
 from recommendationModel.parsing import make_book_id, normalize_text
-from recommendationModel.genreCategorization import fetch_wikipedia_genres
+# from recommendationModel.genreCategorization import fetch_wikipedia_genres
 from genre_images import get_genre_image
 import pickle
 import base64
-from data_loader import get_books, get_recommender_instance
+# from data_loader import get_books, get_recommender_instance
 
 app = Flask(__name__)
 CORS(app)
@@ -2046,11 +2046,6 @@ def get_review_stats():
         return jsonify({"error": str(e)}), 500
 @app.route("/get_recommendations", methods=["POST"])
 def get_recommendations():
-    from data_loader import get_books, get_recommender_instance
-    from recommendationModel.parsing import make_book_id
-    from firebase_admin import firestore
-    db = firestore.client()
-
     try:
         data = request.json
         id_token = data.get("idToken")
@@ -2058,236 +2053,117 @@ def get_recommendations():
         if not id_token or not verify_firebase_token(id_token):
             return jsonify({"error": "Unauthorized"}), 401
 
-        decoded = auth.verify_id_token(id_token)
-        uid = decoded["uid"]
-        email = decoded.get("email", "")
-        if not email:
-            return jsonify({"error": "Email not found in token"}), 400
+        # Fetch all books and their ratings from Firestore
+        books_ref = db.collection("reviews")
+        books_query = books_ref.where("approved", "==", True).stream()
+        books = {}
 
-        # --- Cache user profile to avoid recomputing ---
-        cache_key = f"user_profile:{uid}"
-        user_profile = get_cache(cache_key)
-        user_reviews = get_cache(f"user_reviews:{uid}")
+        for doc in books_query:
+            book_data = doc.to_dict()
+            book_id = make_book_id(book_data.get("book_title", ""), book_data.get("author", ""))
+            rating = book_data.get("rating")
 
-        if user_profile is None or user_reviews is None:
-            user_doc = db.collection("users").document(uid).get().to_dict() or {}
-            user_grade = user_doc.get("grade", 8)
-            user_genres = user_doc.get("favoriteGenres", ["fantasy", "adventure"])
+            if book_id not in books:
+                books[book_id] = {
+                    "title": book_data.get("book_title", ""),
+                    "author": book_data.get("author", ""),
+                    "genres": book_data.get("genres", []),
+                    "ratings": [],
+                }
 
-            # --- Fetch user reviews (native Firestore) ---
-            reviews_ref = db.collection("reviews")
-            past_reviews_query = reviews_ref.where("email", "==", email).limit(100).stream()
-            past_reviews = [doc.to_dict() for doc in past_reviews_query]
+            if rating is not None:
+                books[book_id]["ratings"].append(float(rating))
 
-            user_reviews = []
-            for r in past_reviews:
-                if not r.get("book_title") or r.get("rating") is None:
-                    continue
-                book_id = make_book_id(r["book_title"], r["author"])
-                user_reviews.append({
-                    "book_id": book_id,
-                    "rating": float(r["rating"]),
-                    "source": "review"
-                })
-
-            # --- Fetch user ratings (native Firestore) ---
-            ratings_query = db.collection("ratings").where("userEmail", "==", email).limit(100).stream()
-            for doc in ratings_query:
-                r = doc.to_dict()
-                book_id = make_book_id(r.get("title"), r.get("author"))
-                rating = r.get("rating")
-                if not book_id or rating is None:
-                    continue
-                user_reviews.append({
-                    "book_id": book_id,
-                    "rating": float(rating),
-                    "source": "rating"
-                })
-
-            # --- Deduplicate reviews ---
-            deduped = {}
-            for r in user_reviews:
-                bid = r["book_id"]
-                if bid not in deduped or r["source"] == "review":
-                    deduped[bid] = r
-            user_reviews = list(deduped.values())
-
-            # --- Build user profile ---
-            books = get_books()
-            recommender, context_recommender = get_recommender_instance()
-            user_profile = recommender.build_user_profile(user_reviews)
-
-            # --- Cache for 1 hour ---
-            set_cache(cache_key, user_profile, ttl=3600)
-            set_cache(f"user_reviews:{uid}", user_reviews, ttl=3600)
-        else:
-            books = get_books()
-            recommender, context_recommender = get_recommender_instance()
-
-        # --- Generate recommendations ---
-        if user_profile is None:
-            user_genres = get_cache(f"user_genres:{uid}") or ["fantasy", "adventure"]
-            user_grade = get_cache(f"user_grade:{uid}") or 8
-            recommendations = recommender.cold_start_recommend(
-                user_genres=user_genres,
-                user_grade=float(user_grade),
-                top_k=10
-            )
-        else:
-            user_genres = get_cache(f"user_genres:{uid}") or ["fantasy", "adventure"]
-            user_grade = get_cache(f"user_grade:{uid}") or 8
-            recommendations = context_recommender.recommend(
-                user_profile=user_profile,
-                user_reviews=user_reviews,
-                user_genres=user_genres,
-                user_grade=user_grade,
-                top_k=10
-            )
-
-        # --- Sort and format output ---
-        recommendations = sorted(recommendations, key=lambda x: x[1], reverse=True)
-        output = []
-        for book_id, score in recommendations:
-            book_info = books.get(book_id, {})
-            model_reviews = book_info.get("reviews", [])
-            ratings = [float(r["stars"]) for r in model_reviews if r.get("stars") is not None]
-
-            # --- Fetch Firestore reviews for this book (native Firestore) ---
-            cache_key = f"book_ratings:{book_id}"
-            firestore_ratings = get_cache(cache_key)
-            if firestore_ratings is None:
-                book_reviews_query = (
-                    db.collection("reviews")
-                    .where("approved", "==", True)
-                    .where("book_title", "==", book_info.get("title", "").strip().lower())
-                    .limit(100)
-                    .stream()
-                )
-                firestore_ratings = [float(doc.to_dict().get("rating")) for doc in book_reviews_query if doc.to_dict().get("rating") is not None]
-                set_cache(cache_key, firestore_ratings, ttl=3600)
-            ratings.extend(firestore_ratings)
-
-            avg_rating = round(sum(ratings) / len(ratings), 2) if ratings else 0
-            genres = book_info.get("genres") or book_info.get("genre") or []
-            if isinstance(genres, str):
-                genres = [genres]
-
-            output.append({
+        # Calculate average rating for each book
+        recommendations = []
+        for book_id, book_info in books.items():
+            ratings = book_info["ratings"]
+            avg_rating = sum(ratings) / len(ratings) if ratings else 0
+            recommendations.append({
                 "book_id": book_id,
-                "title": book_info.get("title", "Unknown"),
-                "author": book_info.get("author", "Unknown"),
-                "genres": genres,
-                "score": score,
-                "avg_rating": avg_rating
+                "title": book_info["title"],
+                "author": book_info["author"],
+                "genres": book_info["genres"],
+                "avg_rating": round(avg_rating, 2),
+                "rating_count": len(ratings),
             })
 
-        return jsonify({"recommendations": output}), 200
+        # Sort by average rating (descending) and then by rating count (descending)
+        recommendations.sort(key=lambda x: (x["avg_rating"], x["rating_count"]), reverse=True)
+
+        # Return top 10
+        return jsonify({"recommendations": recommendations[:10]}), 200
 
     except Exception as e:
-        print("rec error trace:")
-        print(traceback.format_exc())
+        print("Error in get_recommendations:", str(e))
         return jsonify({"error": str(e)}), 500
 
 @app.route("/get_recommended_reviews", methods=["POST"])
 def get_recommended_reviews():
-    from data_loader import get_books, get_recommender_instance
-    from recommendationModel.parsing import make_book_id
-    from firebase_admin import firestore
-    db = firestore.client()
-
     try:
         data = request.json
         id_token = data.get("idToken")
-        books = get_books()
 
         if not id_token or not verify_firebase_token(id_token):
             return jsonify({"error": "Unauthorized"}), 401
 
-        decoded = auth.verify_id_token(id_token)
-        uid = decoded["uid"]
-        email = decoded.get("email", "")
-        if not email:
-            return jsonify({"error": "Email not found in token"}), 400
-
-        user_doc = db.collection("users").document(uid).get().to_dict() or {}
-        user_grade = user_doc.get("grade", 8)
-        user_genres = user_doc.get("favoriteGenres", ["fantasy", "adventure"])
-
-        # --- Get recommender ---
-        recommender, context_recommender = get_recommender_instance()
-
-        # --- Fetch user reviews (native Firestore) ---
+        # Fetch all approved reviews from Firestore
         reviews_ref = db.collection("reviews")
-        past_reviews_query = reviews_ref.where("email", "==", email).stream()
-        past_reviews = [doc.to_dict() for doc in past_reviews_query]
+        reviews_query = reviews_ref.where("approved", "==", True).limit(500).stream()
+        reviews = [doc.to_dict() for doc in reviews_query]
 
-        user_reviews = []
-        for r in past_reviews:
-            if not r.get("book_title") or r.get("rating") is None:
-                continue
-            book_id = make_book_id(r["book_title"], r["author"])
-            if book_id in books:
-                user_reviews.append({
-                    "book_id": book_id,
-                    "rating": float(r["rating"]),
-                    "source": "review",
-                    "genres": books.get(book_id, {}).get("genres", [])
+        # Group reviews by book and calculate average rating
+        book_ratings = {}
+        for review in reviews:
+            book_id = make_book_id(review.get("book_title", ""), review.get("author", ""))
+            rating = review.get("rating")
+
+            if book_id not in book_ratings:
+                book_ratings[book_id] = {
+                    "title": review.get("book_title", ""),
+                    "author": review.get("author", ""),
+                    "ratings": [],
+                    "reviews": [],
+                }
+
+            if rating is not None:
+                book_ratings[book_id]["ratings"].append(float(rating))
+            book_ratings[book_id]["reviews"].append(review)
+
+        # Calculate average rating for each book
+        for book_id, book_info in book_ratings.items():
+            ratings = book_info["ratings"]
+            avg_rating = sum(ratings) / len(ratings) if ratings else 0
+            book_info["avg_rating"] = avg_rating
+
+        # Sort books by average rating (descending)
+        sorted_books = sorted(
+            book_ratings.items(),
+            key=lambda x: x[1]["avg_rating"],
+            reverse=True
+        )
+
+        # Flatten reviews from top-rated books
+        output = []
+        for book_id, book_info in sorted_books:
+            for review in book_info["reviews"]:
+                output.append({
+                    "id": review.get("id", ""),
+                    "book_title": review["book_title"],
+                    "author": review["author"],
+                    "review": review.get("review", ""),
+                    "rating": review.get("rating"),
+                    "date_received": review.get("date_received"),
+                    "first_name": review.get("first_name", ""),
+                    "last_name": review.get("last_name", ""),
+                    "anonymous": review.get("anonymous", False),
+                    "avg_rating": book_info["avg_rating"],
                 })
 
-        user_profile = recommender.build_user_profile(user_reviews)
-
-        # --- Fetch all approved reviews (native Firestore) ---
-        all_reviews_query = db.collection("reviews").where("approved", "==", True).limit(500).stream()
-        all_reviews = [doc.to_dict() for doc in all_reviews_query]
-
-        reviewed_book_ids = set()
-        for r in all_reviews:
-            if r.get("book_title"):
-                reviewed_book_ids.add(make_book_id(r["book_title"], r["author"]))
-        total_books = len(reviewed_book_ids)
-
-        if user_profile is None:
-            recommendations = recommender.cold_start_recommend(
-                user_genres=user_genres,
-                user_grade=float(user_grade),
-                top_k=total_books
-            )
-        else:
-            recommendations = context_recommender.recommend(
-                user_profile=user_profile,
-                user_reviews=user_reviews,
-                user_genres=user_genres,
-                user_grade=user_grade,
-                top_k=total_books
-            )
-
-        recommendation_map = {book_id: score for book_id, score in recommendations}
-
-        # --- Fetch all approved reviews again (native Firestore) ---
-        all_reviews_query = db.collection("reviews").where("approved", "==", True).limit(500).stream()
-        all_reviews = [doc.to_dict() for doc in all_reviews_query]
-
-        output = []
-        for r in all_reviews:
-            book_id = make_book_id(r["book_title"], r["author"])
-            output.append({
-                "id": r.get("id", ""),
-                "book_title": r["book_title"],
-                "author": r["author"],
-                "review": r.get("review", ""),
-                "rating": r.get("rating"),
-                "date_received": r.get("date_received"),
-                "first_name": r.get("first_name", ""),
-                "last_name": r.get("last_name", ""),
-                "anonymous": r.get("anonymous", False),
-                "recommendation_score": recommendation_map.get(book_id, 0)
-            })
-
-        output.sort(key=lambda x: x["recommendation_score"], reverse=True)
         return jsonify(output), 200
 
     except Exception as e:
-        print(traceback.format_exc())
+        print("Error in get_recommended_reviews:", str(e))
         return jsonify({"error": str(e)}), 500
 
 @app.route("/clear_cache", methods=["POST"])
