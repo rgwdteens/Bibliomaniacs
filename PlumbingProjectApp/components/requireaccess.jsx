@@ -27,7 +27,7 @@ export function RequireAccess({
       setLoadingRole(true);
 
       const idToken = await firebaseUser.getIdToken(true);
-      const res = await axios.post("http://localhost:5001/get_user_role", { idToken });
+      const res = await axios.post("https://bibliomaniacs.onrender.com/get_user_role", { idToken });
 
       const roleValue = typeof res.data === "string" ? res.data : res.data.role;
       setRole(roleValue ?? "user");

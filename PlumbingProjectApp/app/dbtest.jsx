@@ -41,7 +41,7 @@ export default function App() {
     try {
       const idToken = await getIdToken();
       
-      const res = await fetch("http://localhost:5001/add_book", {
+      const res = await fetch("https://bibliomaniacs.onrender.com/add_book", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken, title })
@@ -70,7 +70,7 @@ export default function App() {
     try {
       const idToken = await getIdToken();
       
-      const res = await fetch("http://localhost:5001/submit_review", {
+      const res = await fetch("https://bibliomaniacs.onrender.com/submit_review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -98,7 +98,7 @@ export default function App() {
 
   const fetchBooks = async () => {
     try {
-      const res = await fetch("http://localhost:5001/get_books");
+      const res = await fetch("https://bibliomaniacs.onrender.com/get_books");
       const data = await res.json();
       setBooks(data);
     } catch (err) {
@@ -109,7 +109,7 @@ export default function App() {
 
   const fetchReviews = async () => {
     try {
-      const res = await fetch("http://localhost:5001/get_reviews");
+      const res = await fetch("https://bibliomaniacs.onrender.com/get_reviews");
       const data = await res.json();
       setReviews(data);
     } catch (err) {

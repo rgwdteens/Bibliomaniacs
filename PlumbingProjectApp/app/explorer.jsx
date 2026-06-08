@@ -37,7 +37,7 @@ export default function AllReviews() {
   };
 
   useEffect(() => {
-    // fetch('http://localhost:5001/clear_cache', { method: 'POST' })
+    // fetch('https://bibliomaniacs.onrender.com/clear_cache', { method: 'POST' })
     fetchReviews();
   }, []);
 
@@ -45,7 +45,7 @@ export default function AllReviews() {
 
   const fetchCommunityRating = async (bookId) => {
     try {
-      const res = await fetch(`http://localhost:5001/get_community_rating/${bookId}`);
+      const res = await fetch(`https://bibliomaniacs.onrender.com/get_community_rating/${bookId}`);
       const data = await res.json();
       if (res.ok && data.rating_count != 0) {
         setCommunityRating(data.average_rating);
@@ -56,7 +56,7 @@ export default function AllReviews() {
       if (!user) return; 
 
       const idToken = await user.getIdToken(true);
-      const res2 = await fetch(`http://localhost:5001/get_users_community_rating/${bookId}`, {
+      const res2 = await fetch(`https://bibliomaniacs.onrender.com/get_users_community_rating/${bookId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken, book_id: bookId }),
@@ -86,7 +86,7 @@ export default function AllReviews() {
     if (!book?.id) return;
 
     try {
-      const res = await fetch(`http://localhost:5001/get_reviews?search=${book.book_title}`);
+      const res = await fetch(`https://bibliomaniacs.onrender.com/get_reviews?search=${book.book_title}`);
       const data = await res.json();
 
       const match = data.find(r => r.id === book.id);
@@ -121,7 +121,7 @@ export default function AllReviews() {
   
       const idToken = await user.getIdToken(true);
   
-      const res = await fetch("http://localhost:5001/submit_community_rating", {
+      const res = await fetch("https://bibliomaniacs.onrender.com/submit_community_rating", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken, book_id: bookId, rating: star }),
@@ -156,7 +156,7 @@ export default function AllReviews() {
         const idToken = await user.getIdToken(true);
 
         res = await fetch(
-          "http://localhost:5001/get_recommended_reviews",
+          "https://bibliomaniacs.onrender.com/get_recommended_reviews",
           {
             method: "POST",
             headers: {
@@ -167,7 +167,7 @@ export default function AllReviews() {
         );
       } else {
         res = await fetch(
-          "http://localhost:5001/get_reviews?status=approved"
+          "https://bibliomaniacs.onrender.com/get_reviews?status=approved"
         );
       }
 

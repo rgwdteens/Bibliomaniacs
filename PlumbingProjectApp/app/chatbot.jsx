@@ -29,7 +29,7 @@ export default function ChatbotPage() {
 
 
         try {
-            const res = await axios.post("http://localhost:5001/ask_question", {
+            const res = await axios.post("https://bibliomaniacs.onrender.com/ask_question", {
                 question: input,
             });
 

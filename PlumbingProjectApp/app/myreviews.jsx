@@ -106,7 +106,7 @@ export default function MyReviews() {
     debounceTimer.current = setTimeout(async () => {
       try {
         const response = await fetch(
-          `http://localhost:5001/check_book_popularity?title=${encodeURIComponent(trimmed)}`
+          `https://bibliomaniacs.onrender.com/check_book_popularity?title=${encodeURIComponent(trimmed)}`
         );
         if (response.ok) {
           const data = await response.json();
@@ -147,7 +147,7 @@ export default function MyReviews() {
 
       const idToken = await user.getIdToken(true);
 
-      const res = await fetch("http://localhost:5001/get_user_reviews", {
+      const res = await fetch("https://bibliomaniacs.onrender.com/get_user_reviews", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -210,7 +210,7 @@ export default function MyReviews() {
       const idToken = await user.getIdToken(true);
 
       const res = await fetch(
-        `http://localhost:5001/delete_user_review/${reviewId}`,
+        `https://bibliomaniacs.onrender.com/delete_user_review/${reviewId}`,
         {
           method: "DELETE",
           headers: {
@@ -321,8 +321,8 @@ export default function MyReviews() {
 
     try {
       const url = isEditMode
-        ? `http://localhost:5001/update_user_review/${editingReviewId}`
-        : "http://localhost:5001/submit_review";
+        ? `https://bibliomaniacs.onrender.com/update_user_review/${editingReviewId}`
+        : "https://bibliomaniacs.onrender.com/submit_review";
 
       const method = isEditMode ? "PUT" : "POST";
 
@@ -348,7 +348,7 @@ export default function MyReviews() {
         // Only notify admins for new reviews, not edits
         if (!isEditMode) {
           try {
-            await fetch("http://localhost:5001/notify_admins", {
+            await fetch("https://bibliomaniacs.onrender.com/notify_admins", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({

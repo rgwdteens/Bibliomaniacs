@@ -109,7 +109,7 @@ export default function LandingPage() {
   const getUserRole = async (user) => {
     const idToken = await user.getIdToken(true);
   
-    const res = await axios.post("http://localhost:5001/get_user_role", {
+    const res = await axios.post("https://bibliomaniacs.onrender.com/get_user_role", {
       idToken,
     });
   

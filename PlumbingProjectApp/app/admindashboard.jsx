@@ -258,7 +258,7 @@ const [reviewStats, setReviewStats] = useState({
           setNewBookAuthor("");
           setShowUpdateBook(false);
 
-          await fetch("http://localhost:5001/notify_all", {
+          await fetch("https://bibliomaniacs.onrender.com/notify_all", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

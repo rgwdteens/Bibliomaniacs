@@ -60,7 +60,7 @@ export default function LandingPage() {
         }
         try {
           const idToken = await user.getIdToken(true);
-          const response = await fetch("http://localhost:5001/get_recommendations", {
+          const response = await fetch("https://bibliomaniacs.onrender.com/get_recommendations", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ idToken: idToken })
@@ -110,7 +110,7 @@ export default function LandingPage() {
   const handleRecommendationPress = async (book) => {
     try {
       const res = await fetch(
-        "http://localhost:5001/get_reviews?status=approved"
+        "https://bibliomaniacs.onrender.com/get_reviews?status=approved"
       );
 
       const data = await res.json();
