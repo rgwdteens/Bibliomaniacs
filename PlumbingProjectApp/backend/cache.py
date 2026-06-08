@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 
-cache = redis.Redis(host="redis://red-d6keeht6ubrc73edn16g:6379", port=6380, db=0)
+cache = redis.Redis(host="redis://red-d6keeht6ubrc73edn16g", port=6379, db=0)
 # cache = redis.Redis(host="localhost", port=6380, db=0)
 
 def get_cache(key):

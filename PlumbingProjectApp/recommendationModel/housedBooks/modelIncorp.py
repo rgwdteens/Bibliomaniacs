@@ -25,7 +25,7 @@ from housedBooks.availability import avail
 import time
 
 class AvailabilityCache:
-    def __init__(self, redis_host="localhost", redis_port=6379):
+    def __init__(self, redis_host="redis://red-d6keeht6ubrc73edn16g", redis_port=6379):
         self.redis = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
 
     def _key(self, title: str) -> str:
