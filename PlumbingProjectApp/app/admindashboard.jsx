@@ -37,7 +37,6 @@ const [reviewStats, setReviewStats] = useState({
 
   const getIdToken = async () => {
     try {
-      const auth = getAuth();
       const user = auth.currentUser;
       
       if (user) {
