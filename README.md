@@ -1,4 +1,4 @@
-# Plumbing-Project
+# Bibliomaniacs
 
 A web application built using a single React Native codebase (via React Native for Web). The application communicates with a Python Flask backend, uses Firebase for secure authentication and data storage, and integrates AI features powered by a large language model (LLM).
 
