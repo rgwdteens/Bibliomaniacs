@@ -18,7 +18,7 @@ export default function LandingPage() {
 
   const [authReady, setAuthReady] = useState(false);
   const [loadingBook, setLoadingBook] = useState(true);
-  const API_BASE_URL = "https://bibliomaniacs.onrender.com";
+  const API_BASE_URL = "https://bibliomaniacs-ytnd.onrender.com";
   const [bookOfTheWeekGenre, setbookOfTheWeekGenre] = useState("");
 
 
@@ -109,7 +109,7 @@ export default function LandingPage() {
   const getUserRole = async (user) => {
     const idToken = await user.getIdToken(true);
   
-    const res = await axios.post("https://bibliomaniacs.onrender.com/get_user_role", {
+    const res = await axios.post("https://bibliomaniacs-ytnd.onrender.com/get_user_role", {
       idToken,
     });
   
