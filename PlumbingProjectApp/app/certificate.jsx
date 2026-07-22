@@ -111,7 +111,7 @@ export default function ArchiveScreen() {
 
         const idToken = await user.getIdToken(true);
 
-        const res = await fetch("https://bibliomaniacs.onrender.com/get_user_reviews", {
+        const res = await fetch("https://bibliomaniacs-ytnd.onrender.com/get_user_reviews", {
             method: "POST",
             headers: {
             "Content-Type": "application/json",
@@ -218,7 +218,7 @@ export default function ArchiveScreen() {
     
         const idToken = await user.getIdToken(true);
         
-        const res = await fetch("https://bibliomaniacs.onrender.com/generate_certificate", {
+        const res = await fetch("https://bibliomaniacs-ytnd.onrender.com/generate_certificate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ idToken, firstName, lastName, certDate, certHours }),
@@ -248,7 +248,7 @@ export default function ArchiveScreen() {
         
             const idToken = await user.getIdToken(true);
         
-            const res = await fetch("https://bibliomaniacs.onrender.com/update_certificate", {
+            const res = await fetch("https://bibliomaniacs-ytnd.onrender.com/update_certificate", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
