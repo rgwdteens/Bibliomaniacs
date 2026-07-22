@@ -21,7 +21,7 @@ export default function LandingPage() {
   const [bookOfTheWeekGenre, setbookOfTheWeekGenre] = useState("");
   const [selectedReview, setSelectedReview] = useState(null);
   const [reviewMessage, setReviewMessage] = useState("");
-  const API_BASE_URL = "https://bibliomaniacs.onrender.com";
+  const API_BASE_URL = "https://bibliomaniacs-ytnd.onrender.com";
 
   const GENRE_IMAGES = {
     horror: "https://images.unsplash.com/photo-1504701954957-2010ec3bcec1",
@@ -60,7 +60,7 @@ export default function LandingPage() {
         }
         try {
           const idToken = await user.getIdToken(true);
-          const response = await fetch("https://bibliomaniacs.onrender.com/get_recommendations", {
+          const response = await fetch("https://bibliomaniacs-ytnd.onrender.com/get_recommendations", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ idToken: idToken })
@@ -110,7 +110,7 @@ export default function LandingPage() {
   const handleRecommendationPress = async (book) => {
     try {
       const res = await fetch(
-        "https://bibliomaniacs.onrender.com/get_reviews?status=approved"
+        "https://bibliomaniacs-ytnd.onrender.com/get_reviews?status=approved"
       );
 
       const data = await res.json();
