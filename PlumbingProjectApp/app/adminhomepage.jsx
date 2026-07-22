@@ -12,7 +12,7 @@ export default function AdminHomePage() {
   const [authReady, setAuthReady] = useState(false);
   const [loadingBook, setLoadingBook] = useState(true);
   const [bookOfTheWeekGenre, setbookOfTheWeekGenre] = useState("");
-  const API_BASE_URL = "https://bibliomaniacs.onrender.com";
+  const API_BASE_URL = "https://bibliomaniacs-ytnd.onrender.com";
 
   const GENRE_IMAGES = {
     horror: "https://images.unsplash.com/photo-1504701954957-2010ec3bcec1",
