@@ -52,7 +52,7 @@ export default function Layout() {
   const getUserRole = async (user) => {
     const idToken = await user.getIdToken(true);
   
-    const res = await axios.post("https://bibliomaniacs.onrender.com/get_user_role", {
+    const res = await axios.post("https://bibliomaniacs-ytnd.onrender.com/get_user_role", {
       idToken,
     });
   
@@ -144,7 +144,7 @@ export default function Layout() {
   
       const idToken = await user.getIdToken(true);
   
-      const res = await axios.post("https://bibliomaniacs.onrender.com/get_user_role", {
+      const res = await axios.post("https://bibliomaniacs-ytnd.onrender.com/get_user_role", {
         idToken,
       });
       const roleValue = typeof res.data === "string" ? res.data : res.data.role;
