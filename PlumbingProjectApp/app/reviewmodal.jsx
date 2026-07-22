@@ -71,7 +71,7 @@ export default function ReviewModal({
         debounceRef.current = setTimeout(async () => {
             setContentChecking(true);
             try {
-                const res = await fetch("https://bibliomaniacs.onrender.com/check_content", {
+                const res = await fetch("https://bibliomaniacs-ytnd.onrender.com/check_content", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text: review }),
